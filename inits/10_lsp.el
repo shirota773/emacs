@@ -1,4 +1,5 @@
 (leaf flycheck
+  :ensure t
   :init (global-flycheck-mode 0)
   ;; :mode (
   ;; ("\\.py$" . python-mode)
@@ -45,7 +46,7 @@
   (company-show-numbers . t)
 
   :config
-  ;; (global-company-mode t)
+  (global-company-mode t)
   ;; (define-key company-active-map [tab] 'company-complete-selection)
 
   (set-face-attribute 'company-tooltip-selection nil
@@ -54,6 +55,12 @@
   (set-face-attribute 'company-tooltip-common-selection nil
                       :foreground "white" :background "#007771")
   ;; (push 'company-lsp company-backends))
+  (defun my/company-insert-common ()
+    "Insert the common part of all candidates."
+    (interactive)
+    (when (company-manual-begin)
+      (company--insert-common)))
+
   :commands company-lsp
   :bind
   (:company-active-map
@@ -65,16 +72,13 @@
    ("M-n" . company-select-next)
    ("M-p" . company-select-previous)
    ("<up>" . nil)
-   ("<down>" . nil))
+   ("<down>" . nil)
+   ("C-j" . my/company-insert-common))
+
   )
 
-(defun my/company-insert-common ()
-  "Insert the common part of all candidates."
-  (interactive)
-  (when (company-manual-begin)
-    (company--insert-common)))
 
-(define-key company-active-map (kbd "C-j") #'my/company-insert-common)
+;; (define-key company-active-map (kbd "C-j") #'my/company-insert-common)
 
 
 (global-company-mode t)
@@ -226,12 +230,17 @@
 ;;   )
 
 ;; ein
-(eval-when-compile
-  (require 'ein)
-  (require 'ein-notebook)
-  (require 'ein-notebooklist)
-  (require 'ein-markdown-mode)
-  (require 'smartrep))
+(leaf ein
+  :ensure t
+  :config
+  (eval-when-compile
+    (require 'ein)
+    (require 'ein-notebook)
+    (require 'ein-notebooklist)
+    (require 'ein-markdown-mode)
+    ;; (require 'smartrep)
+    )
+
 
 ;; (add-hook 'ein:notebook-mode-hook 'electric-pair-mode) ;; お好みで
 ;; (add-hook 'ein:notebook-mode-hook 'undo-tree-mode) ;; お好みで
@@ -261,8 +270,9 @@
 ;; C-c C-n C-n C-n ... で下のセルに連続で移動、
 ;; その途中でC-p C-p C-pで上のセルに連続で移動など
 ;; セル間の移動がスムーズになってとても便利
-(declare-function smartrep-define-key "smartrep")
-(with-eval-after-load "ein-notebook"
-  (smartrep-define-key ein:notebook-mode-map "C-c"
-    '(("C-n" . 'ein:worksheet-goto-next-input-km)
-      ("C-p" . 'ein:worksheet-goto-prev-input-km))))
+;; (declare-function smartrep-define-key "smartrep")
+;; (with-eval-after-load "ein-notebook"
+;;   (smartrep-define-key ein:notebook-mode-map "C-c"
+;;     '(("C-n" . 'ein:worksheet-goto-next-input-km)
+;;       ("C-p" . 'ein:worksheet-goto-prev-input-km))))
+)

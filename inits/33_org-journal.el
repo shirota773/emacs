@@ -56,6 +56,7 @@
 
 
 (setq org-agenda-file-regexp "\\`\\\([^.].*\\.org\\\|[0-9]\\\{8\\\}\\\(\\.gpg\\\)?\\\)\\'")
+(defvar org-agenda-files nil)
 (add-to-list 'org-agenda-files org-journal-dir)
 
 (setq org-journal-enable-agenda-integration t

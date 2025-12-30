@@ -103,7 +103,7 @@
 
 ;; フォントサイズの変更
 ;; (add-to-list default-frame-alist '(font . "Ricty diminished"))
-(set-frame-font "Ricty diminished-12" nil t)
+;; (set-frame-font "Ricty diminished-12" nil t)
 ;; (set-face-attribute 'default nil :height 150)
 (put 'erase-buffer 'disabled nil)
 
