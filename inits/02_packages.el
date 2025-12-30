@@ -11,7 +11,8 @@
 )
 
 (leaf viewer
-  :require t
+  :ensure t
+  ;; :require t
   :custom
   (view-read-only . t)
   (viewer-modeline-color-view . "darkblue")

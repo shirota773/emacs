@@ -246,10 +246,10 @@
       berkeley-unix-p (eq system-type 'berkeley-unix-p)
       nt-p            (eq system-type 'windows-nt))
 
-(when darwin-p
-  (load "~/.emacs.d/unix.el"))
-(when berkeley-unix-p
-  (load "~/.emacs.d/unix.el"))
+;; (when darwin-p
+;;   (load "~/.emacs.d/unix.el"))
+;; (when berkeley-unix-p
+;;   (load "~/.emacs.d/unix.el"))
 (when windows-nt-p
   (load "~/.emacs.d/inits/win.el"))
 

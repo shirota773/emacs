@@ -8,6 +8,7 @@
   (set-keyboard-coding-system 'utf-8-unix)
   (set-clipboard-coding-system 'utf-8-unix)
   (set-terminal-coding-system 'utf-8-unix)
+  (set-frame-font "Ricty diminished-12" nil t)
   )
 
 (leaf *IME

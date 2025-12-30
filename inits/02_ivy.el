@@ -4,8 +4,11 @@
     :config
     (leaf smex :ensure t)
     (leaf counsel :ensure t)
-
-    (ivy-rich-mode 1)
+    (leaf ivy-rich
+      :ensure t
+      :config
+      (ivy-rich-mode 1)
+      )
     (ivy-add-actions
      'my/counsel-buffer-or-recentf
      '(("j" find-file-other-window "other window")))
