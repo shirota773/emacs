@@ -2,8 +2,6 @@
   :ensure t
   :init (global-flycheck-mode 0)
   ;; :mode (
-  ;; ("\\.py$" . python-mode)
-  ;; ;; ("\\.sh$" . gnuplot-mode)
   ;; ("\\.org$" . org-mode))
   :hook  ((python-mode-hook . flycheck-mode))
   :config

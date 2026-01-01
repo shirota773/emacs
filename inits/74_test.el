@@ -1,3 +1,9 @@
+(leaf json-mode
+  :mode "\\.json"
+  :custom
+  (js-indent-level . 2)
+  )
+
 (leaf magit
   :ensure t
   :bind (("C-x g" . magit-status)
@@ -502,4 +508,5 @@ Default level is 1 if the setting is not specified."
 
 
 
-
+(setq magit-process-log-max 100)
+(setq magit-git-debug t)
