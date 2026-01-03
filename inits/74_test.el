@@ -95,6 +95,7 @@ Insert:
 (leaf nerd-icons)
 
 (leaf puni
+  :ensure t
   :config
   ;; (smartrep-define-key global-map "C-c v"
   :bind (("C-b" . hydra-b-primary/body))

@@ -1,5 +1,7 @@
 (leaf *auto-seve-files
   :config
+  :defvar
+  my/backup-dir
   :custom
   (make-backup-files . nil)
   (auto-save-default . t)
