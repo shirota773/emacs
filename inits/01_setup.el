@@ -211,8 +211,7 @@
 (leaf calendar
   :custom
   (diary-number-of-entries . 31)
-  (calendar-mark-holidays-flag . t)
-  :hook (calendar . invisible-traling-whitspace))
+  (calendar-mark-holidays-flag . t))
 
 (leaf japanese-holidays
   :ensure t

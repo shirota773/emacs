@@ -527,10 +527,10 @@ TEXT is the point."
 ;;  ("\\paragraph{%s}" . "\\paragraph*{%s}")
 ;;  ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
 
-(defun inset-daily-routin ()
+(defun insert-daily-routine ()
   (interactive "")
   (insert
-   (format "** [%s]\n\n- Daily Routin [/]\n  + [ ] Burpee jump\n  + [ ] English study" (today-time-string))))
+   (format "** [%s]\n\n- Daily Routine [/]\n  + [ ] Burpee jump\n  + [ ] English study" (today-time-string))))
 
 (defvar days-works-file "~/Dropbox/org/days-works.org")
 ;; (setq days-works-file nil)
@@ -551,67 +551,25 @@ TEXT is the point."
            (org-restart-font-lock)
            (setq org-descriptive-links t))))
 
-;; (defun insert-date-headline-to-days-works (&optional date)
-;;   (let* ((date-string ""))
-;;     (case date
-;;       ('tommorow (setq date-string (get-tommorow-string)))
-;;       ('yesterday (setq date-string (get-yesterday-string)))
-;;       (t (setq date-string (get-today-string))))
-;;     (with-temp-buffer
-;;       (insert-file-contents days-works-file)
-;;       (if (re-search-forward (format "^\\* %s.*" date-string) nil t)
-;;           ();すでにある場合は何もしない
-;;         (if (re-search-forward "^\\* [0-9]+-[0-9]+-[0-9]+.*" nil t)
-;;             (progn
-;;               (beginning-of-line)
-;;               (open-line 1))
-;;           (end-of-buffer));何もないときはbufferの最後
-;;         (insert (format "* %s\n" date-string))
-;;         (insert "** achievement\n")
-;;         (insert "** duty list")
-;;         (write-file days-works-file)))))
 
 (defun open-days-work-file ()
   (interactive)
   (find-file days-works-file)
-  (when (re-search-forward (format "^\\* %s" (get-today-string)) nil t)
+  (when (re-search-forward (format "^\\* %s" (format-time-string "%y-%m-%d %a")) nil t)
     (beginning-of-line)
     (org-show-subtree)))
 
 (defun open-days-work-file-tommorow ()
   (interactive)
   (find-file days-works-file)
-  (insert-date-headline-to-days-works 'tommorow)
   (when (re-search-forward (format "^\\* %s" (get-tommorow-string)) nil t)
     (beginning-of-line)
     (org-show-subtree)))
 
 
-
-;; (defun insert-date-headline-to-days-works (&optional date)
-;; (let* ((date-string ""))
-;;   (case date
-;;     ('tommorow (setq date-string (get-tommorow-string)))
-;;     ('yesterday (setq date-string (get-yesterday-string)))
-;;     (t (setq date-string (get-today-string))))
-;;   (with-temp-buffer
-;;     (insert-file-contents days-works-file)
-;;     (if (re-search-forward (format "^\\* %s.*" date-string) nil t)
-;;         ();すでにある場合は何もしない
-;;       (if (re-search-forward "^\\* [0-9]+-[0-9]+-[0-9]+.*" nil t)
-;;           (progn
-;;             (beginning-of-line)
-;;             (open-line 1))
-;;         (end-of-buffer));何もないときはbufferの最後
-;;       (insert (format "* %s\n" date-string))
-;;       (insert "** achievement\n")
-;;       (insert "** duty list")
-;;       (write-file days-works-file)))))
-
 (defun org-capture-extend ()
+  "org-capture の実行前に他の関数を実行したい"
   (interactive)
-  "org-capptureの実行前に他の関数を実行したい"
-  (insert-date-headline-to-days-works)
   (org-capture))
 
 (defun gtd ()
@@ -626,11 +584,9 @@ TEXT is the point."
       '(("Note" ?n "* %?\n  %i\n  %a" nil "Tasks")
         ("Todo" ?t "* TODO %?\n  %i\n  %a" nil "Tasks")))
                                         ; TODOにWAITを追加
-(setq org-todo-keywords '("TODO"  "DONE") org-todo-interpretation 'sequence)
 (setq org-todo-keyword-faces
       '(("TODO"    . org-warning)
         ("WAIT" . shadow)))
-(setq org-startup-truncated nil)
 
 (defun change-truncation()
   (interactive)

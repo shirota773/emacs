@@ -10,7 +10,7 @@
       (ivy-rich-mode 1)
       )
     (ivy-add-actions
-     'my/counsel-buffer-or-recentf
+     'counsel-buffer-or-recentf
      '(("j" find-file-other-window "other window")))
 
     (defun sort-windows-by-top-left ()
@@ -85,18 +85,6 @@
              (my/file-open-in-nth-window file 2)))))
       ))
 
-    (defun my/file-open-in-nth-window (file nth)
-      "n番目がない場合は最後のwindowを分割する"
-      (activate-sorted-window-by-index nth)
-      (find-file file))
-
-    (setq ivy-initial-inputs-alist
-          '((org-agenda-refile . "^")
-            (org-capture-refile . "^")
-            (counsel-descbinds-function . "^")
-            (counsel-delete-variable . "^")
-            (counsel-M-x . "")
-            ))
 
     (defun my/counsel-recentf-dired ()
       "Select a file from `recentf' and open find-file in tis directory"
@@ -105,15 +93,6 @@
              (dir (and file (file-name-directory file))))
         (when dir
           (counsel-find-file dir))))
-    (defun my/counsel-recentf-setup ()
-      (define-key
-       recentf-mode-map (kbd "C-t")
-       (lambda ()
-         (interactive)
-         (ivy-exit-with-action
-          (lambda (file)
-            (counsel-find-file (file-name-directory file))))))
-      )
     (add-hook 'recentf-mode-hook #'my/counsel-recentf-setup)
 
     :custom ((ivy-read-action-function . #'ivy-hydra-read-action)
