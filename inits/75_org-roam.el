@@ -2,15 +2,12 @@
 (leaf org-roam-dailies)
 
 (cond
- ((eq system-type 'darwin)  ;; macOS用の設定
-  (setq my-org-directory "~/org_icloud/")
-  )
- ((eq system-type 'gnu/linux)  ;; Linux用の設定
+ (darwin-p      ;; macOS用の設定
+  (setq my-org-directory "~/org_icloud/"))
+ (linux-p       ;; Linux用の設定
   nil)
- ((eq system-type 'windows-nt)  ;; Windows用の設定
-  (setq my-org-directory "~/iCloudDrive/org/")
-  )
- )
+ (windows-nt-p  ;; Windows用の設定
+  (setq my-org-directory "~/iCloudDrive/org/")))
 
 (leaf org-roam
   ;; :ensure t

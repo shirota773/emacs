@@ -7,10 +7,10 @@
     "Open a file in the default external application using a find-file-like interface."
     (interactive)
     (let* ((file (expand-file-name (read-file-name "Open file: "))
-                 (command (cl-case system-type
-                            ('windows-nt (list "cmd.exe" "/c" "start" "" file))
-                            ('darwin (list "open" file))
-                            ('gnu/linux (list "xdg-open" file)))))
+                 (command (cond
+                            (windows-nt-p (list "cmd.exe" "/c" "start" "" file))
+                            (darwin-p (list "open" file))
+                            (linux-p (list "xdg-open" file)))))
            (apply 'start-process "external-app" nil (car command) (cdr command)))))
 
 
