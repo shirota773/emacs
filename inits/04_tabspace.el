@@ -29,7 +29,8 @@
 ----------------------------- -----------------------------------------
 [_f_]:  switch-buffer          [_r_]: remove-buffer-current  | [_C-k_]:close-workspace
 [_C-f_]:switch-buffer&tab      [_R_]: remove-buffer-selected | [_C-K_]:close-buffers&kill-buffers
-[_s_]:  save-tab-session       [_C-s_]: load-tab-session     | [_d_]:delete-tab-session
+[_s_]:  save-session           [_C-s_]: load-session         | [_d_]:delete-session
+[_ws_]: save-layout            [_wl_]: load-layout           | [_wd_]:delete-layout
 
  "
           ("h" tab-bar-switch-to-prev-tab :exit nil)
@@ -43,23 +44,28 @@
           ("r" tabspaces-remove-current-buffer)
           ("R" tabspaces-remove-selected-buffer)
           ("C-k" tabspaces-close-workspace)
-          ("C-K" tabspaces-kill-buffers-close-workspace )
+          ("C-K" tabspaces-kill-buffers-close-workspace)
           ("j" tab-bar-select-tab-by-name)
           ("s" my/tabspace-save-tab-session)
           ("C-s" my/tabspace-load-tab-session)
           ("d" my/tabspace-delete-tab-session)
+          ("ws" my/tabspace-save-layout)
+          ("wl" my/tabspace-load-layout)
+          ("wd" my/tabspace-delete-layout)
           ("q" nil "exit"))
   :config
-  (tab-bar-mode 1)
   (leaf tab-bar
     :custom
     (tab-bar-auto-width-min . '((10) 2))
     (tab-bar-auto-width-max . '((100) 10))
     (tab-bar-auto-width . t)
-    (tab-bar-show . 1)
+    (tab-bar-show . 1)          ; tab-bar-mode より先に設定
     :custom-face
-    (tab-bar-tab . '((t ( :foreground "yellow" :box nil))))
+    (tab-bar . '((t (:inherit default))))
+    (tab-bar-tab . '((t (:foreground "yellow" :weight bold :box nil))))
+    (tab-bar-tab-inactive . '((t (:foreground "gray60" :box nil))))
     )
+  (tab-bar-mode 1)
 
    (advice-add 'project-switch-project :around #'my/project-switch-advice)
 
@@ -239,6 +245,20 @@ Note: Include patterns take precedence over exclude patterns."
    (concat (replace-regexp-in-string "[^a-zA-Z0-9-]" "_" tab-name) ".el")
    my/tabspace-sessions-dir))
 
+(defun my/tabspace--read-session (tab-name)
+  "Read session data for TAB-NAME from disk. Returns plist or nil."
+  (let ((file (my/tabspace--session-file tab-name)))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (read (current-buffer))))))
+
+(defun my/tabspace--write-session (tab-name session-data)
+  "Write SESSION-DATA for TAB-NAME to disk."
+  (my/tabspace--ensure-sessions-dir)
+  (with-temp-file (my/tabspace--session-file tab-name)
+    (prin1 session-data (current-buffer))))
+
 (defun my/tabspace--buffer-matches-pattern-p (buffer-name pattern)
   "Return non-nil if BUFFER-NAME matches PATTERN.
 PATTERN can be:
@@ -282,15 +302,13 @@ Priority:
                (not (my/tabspace--buffer-matches-patterns-p name my/tabspace-session-exclude-buffers)))))))
 
 (defun my/tabspace-save-tab-session (&optional tab-name)
-  "Save the current tab's session (buffers and window configuration).
+  "Save the current tab's session (open buffer list only).
 If TAB-NAME is nil, use the current tab.
-Only saves file-visiting buffers, excluding special buffers."
+Only saves file-visiting buffers, excluding special buffers.
+Window layout is managed separately via `my/tabspace-save-layout'."
   (interactive)
-  (my/tabspace--ensure-sessions-dir)
-  (let* ((current-tab (tab-bar--current-tab))
-         (tab-name (or tab-name (alist-get 'name current-tab)))
-         (session-file (my/tabspace--session-file tab-name))
-         ;; Get all buffers belonging to this tab from frame-parameter
+  (let* ((tab-name (or tab-name (alist-get 'name (tab-bar--current-tab))))
+         (existing (my/tabspace--read-session tab-name))
          (tab-buffers (seq-filter #'buffer-live-p
                                   (frame-parameter nil 'buffer-list)))
          (file-buffers (seq-filter #'my/tabspace--should-save-buffer-p tab-buffers))
@@ -301,103 +319,76 @@ Only saves file-visiting buffers, excluding special buffers."
                             :file (buffer-file-name buf)
                             :major-mode major-mode
                             :point (point)
-                            :special (not (buffer-file-name buf)))))  ; Mark special buffers
+                            :special (not (buffer-file-name buf)))))
                   file-buffers))
          (session-data
           (list :tab-name tab-name
                 :buffers buffer-info
-                :window-state (window-state-get (frame-root-window) t))))
-
-    (with-temp-file session-file
-      (prin1 session-data (current-buffer)))
-    (message "Tab session '%s' saved (%d buffers) to %s"
-             tab-name (length buffer-info) session-file)))
+                :layouts (plist-get existing :layouts))))  ; 既存レイアウトを保持
+    (my/tabspace--write-session tab-name session-data)
+    (message "Tab session '%s' saved (%d buffers)" tab-name (length buffer-info))))
 
 (defun my/tabspace-load-tab-session (&optional tab-name)
-  "Load a saved tab session.
-If TAB-NAME is nil, prompt for a session to load."
+  "Load a saved tab session (buffer list only).
+If TAB-NAME is nil, prompt for a session to load.
+To restore window layout, use `my/tabspace-load-layout' afterwards."
   (interactive)
   (my/tabspace--ensure-sessions-dir)
-  (let* ((session-files
-          (directory-files my/tabspace-sessions-dir nil "\.el$"))
-         (session-names
-          (mapcar (lambda (f)
-                    (replace-regexp-in-string "_" " "
-                                              (file-name-sans-extension f)))
-                  session-files))
-         (selected-name
-          (or tab-name
-              (completing-read "Load tab session: " session-names nil t)))
-         (session-file (my/tabspace--session-file selected-name)))
-    (if (not (file-exists-p session-file))
+  (let* ((session-files (directory-files my/tabspace-sessions-dir nil "\\.el$"))
+         (session-names (mapcar (lambda (f)
+                                  (replace-regexp-in-string
+                                   "_" " " (file-name-sans-extension f)))
+                                session-files))
+         (selected-name (or tab-name
+                            (completing-read "Load tab session: " session-names nil t)))
+         (session-data (my/tabspace--read-session selected-name)))
+    (if (not session-data)
         (message "No session found for tab '%s'" selected-name)
-      (let* ((session-data
-              (with-temp-buffer
-                (insert-file-contents session-file)
-                (read (current-buffer))))
-             (saved-tab-name (plist-get session-data :tab-name))
-             (buffer-info (plist-get session-data :buffers))
-             (window-state (plist-get session-data :window-state)))
+      (let* ((saved-tab-name (plist-get session-data :tab-name))
+             (buffer-info (plist-get session-data :buffers)))
 
         ;; Create new tab or switch to existing one
-        (let ((existing-tab
-               (seq-find (lambda (tab)
-                           (string= (alist-get 'name tab) saved-tab-name))
-                         (tab-bar-tabs))))
-          (if existing-tab
-              (tab-bar-switch-to-tab saved-tab-name)
-            (progn
-              (tab-bar-new-tab)
-              (tab-bar-rename-tab saved-tab-name))))
+        (if (seq-find (lambda (tab) (string= (alist-get 'name tab) saved-tab-name))
+                      (tab-bar-tabs))
+            (tab-bar-switch-to-tab saved-tab-name)
+          (tab-bar-new-tab)
+          (tab-bar-rename-tab saved-tab-name))
 
-        ;; Clear current buffers in the tab
         (tabspaces-clear-buffers)
 
-        ;; Restore buffers - open them without displaying yet
+        ;; Restore buffers
         (let ((loaded-buffers '()))
           (dolist (buf-data buffer-info)
             (let ((file (plist-get buf-data :file))
                   (name (plist-get buf-data :name))
                   (is-special (plist-get buf-data :special)))
               (cond
-               ;; Handle file-visiting buffers
                ((and file (not is-special))
                 (when (file-exists-p file)
                   (let ((buf (find-file-noselect file)))
                     (with-current-buffer buf
                       (goto-char (plist-get buf-data :point)))
                     (push buf loaded-buffers))))
-               ;; Handle special buffers (like *Ibuffer*)
                (is-special
-                (let ((buf (get-buffer-create name)))
-                  (push buf loaded-buffers))))))
-
-          ;; Add all loaded buffers to the frame's buffer-list to register them with the tab
+                (push (get-buffer-create name) loaded-buffers)))))
           (dolist (buf (reverse loaded-buffers))
             (set-frame-parameter nil 'buffer-list
                                  (cons buf (delq buf (frame-parameter nil 'buffer-list))))))
 
-        ;; Restore window configuration
-        (when window-state
-          (window-state-put window-state (frame-root-window) 'safe))
-
         (message "Tab session '%s' loaded (%d buffers)" saved-tab-name (length buffer-info))))))
 
 (defun my/tabspace-delete-tab-session (&optional tab-name)
-  "Delete a saved tab session.
+  "Delete a saved tab session file entirely.
 If TAB-NAME is nil, prompt for a session to delete."
   (interactive)
   (my/tabspace--ensure-sessions-dir)
-  (let* ((session-files
-          (directory-files my/tabspace-sessions-dir nil "\.el$"))
-         (session-names
-          (mapcar (lambda (f)
-                    (replace-regexp-in-string "_" " "
-                                              (file-name-sans-extension f)))
-                  session-files))
-         (selected-name
-          (or tab-name
-              (completing-read "Delete tab session: " session-names nil t)))
+  (let* ((session-files (directory-files my/tabspace-sessions-dir nil "\\.el$"))
+         (session-names (mapcar (lambda (f)
+                                  (replace-regexp-in-string
+                                   "_" " " (file-name-sans-extension f)))
+                                session-files))
+         (selected-name (or tab-name
+                            (completing-read "Delete tab session: " session-names nil t)))
          (session-file (my/tabspace--session-file selected-name)))
     (if (not (file-exists-p session-file))
         (message "No session found for tab '%s'" selected-name)
@@ -421,5 +412,113 @@ If TAB-NAME is nil, prompt for a session to delete."
                  (replace-regexp-in-string "_" " "
                                            (file-name-sans-extension file))))
             (princ (format "  - %s\n" session-name))))))))
+
+;; ========================================
+;; Per-tab named layout save/load
+;; ========================================
+
+(defun my/tabspace-save-layout (&optional layout-name)
+  "Save current window arrangement as LAYOUT-NAME for the current tab.
+If LAYOUT-NAME is nil or omitted, uses \"default\"."
+  (interactive (list (read-string "Layout name (default: \"default\"): " nil nil "default")))
+  (let* ((layout-name (or (and (stringp layout-name) (not (string-empty-p layout-name))
+                               layout-name)
+                          "default"))
+         (tab-name (alist-get 'name (tab-bar--current-tab)))
+         (session (or (my/tabspace--read-session tab-name)
+                      (list :tab-name tab-name :buffers nil :layouts nil)))
+         (layouts (plist-get session :layouts))
+         (window-state (window-state-get (frame-root-window) t))
+         (new-layouts (cons (cons layout-name window-state)
+                            (cl-remove layout-name layouts :key #'car :test #'equal))))
+    (my/tabspace--write-session tab-name
+      (plist-put (copy-sequence session) :layouts new-layouts))
+    (message "Layout '%s' saved for tab '%s'" layout-name tab-name)))
+
+(defun my/tabspace-load-layout (&optional layout-name)
+  "Load a named layout for the current tab.
+If LAYOUT-NAME is nil, prompt with completion."
+  (interactive)
+  (let* ((tab-name (alist-get 'name (tab-bar--current-tab)))
+         (session (my/tabspace--read-session tab-name)))
+    (if (not session)
+        (message "No session found for tab '%s'" tab-name)
+      (let* ((layouts (or (plist-get session :layouts)
+                          ;; 後方互換: 旧 :window-state を "default" として扱う
+                          (when (plist-get session :window-state)
+                            (list (cons "default" (plist-get session :window-state))))))
+             (names (mapcar #'car layouts))
+             (selected (or layout-name
+                           (completing-read "Load layout: " names nil t)))
+             (state (cdr (assoc selected layouts))))
+        (if state
+            (progn
+              (window-state-put state (frame-root-window) 'safe)
+              (message "Layout '%s' loaded" selected))
+          (message "Layout '%s' not found for tab '%s'" selected tab-name))))))
+
+(defun my/tabspace-delete-layout (&optional layout-name)
+  "Delete a named layout for the current tab."
+  (interactive)
+  (let* ((tab-name (alist-get 'name (tab-bar--current-tab)))
+         (session (my/tabspace--read-session tab-name)))
+    (if (not session)
+        (message "No session found for tab '%s'" tab-name)
+      (let* ((layouts (plist-get session :layouts))
+             (names (mapcar #'car layouts))
+             (selected (or layout-name
+                           (completing-read "Delete layout: " names nil t))))
+        (when (y-or-n-p (format "Delete layout '%s'? " selected))
+          (my/tabspace--write-session tab-name
+            (plist-put (copy-sequence session) :layouts
+                       (cl-remove selected layouts :key #'car :test #'equal)))
+          (message "Layout '%s' deleted" selected))))))
+
+(defun my/tabspace-list-layouts ()
+  "List all saved layouts for the current tab."
+  (interactive)
+  (let* ((tab-name (alist-get 'name (tab-bar--current-tab)))
+         (session (my/tabspace--read-session tab-name))
+         (layouts (plist-get session :layouts)))
+    (if (not layouts)
+        (message "No layouts saved for tab '%s'" tab-name)
+      (message "Layouts for '%s': %s"
+               tab-name (mapconcat #'car layouts ", ")))))
+
+;; ========================================
+;; Per-tab winner-mode
+;; ========================================
+
+(defvar my/winner-tab-rings (make-hash-table :test 'equal)
+  "Hash table mapping tab names to their winner-mode ring state.")
+
+(defun my/winner-save-for-tab ()
+  "Save current winner-mode state for the current tab."
+  (when (and (boundp 'winner-mode) winner-mode
+             (boundp 'winner-ring-alist))
+    (let ((tab-name (alist-get 'name (tab-bar--current-tab))))
+      (puthash tab-name
+               (list :ring (copy-tree winner-ring-alist)
+                     :pending (and (boundp 'winner-pending-alist)
+                                   (copy-tree winner-pending-alist)))
+               my/winner-tab-rings))))
+
+(defun my/winner-restore-for-tab ()
+  "Restore winner-mode state for the current tab."
+  (when (and (boundp 'winner-mode) winner-mode
+             (boundp 'winner-ring-alist))
+    (let* ((tab-name (alist-get 'name (tab-bar--current-tab)))
+           (state (gethash tab-name my/winner-tab-rings)))
+      (if state
+          (progn
+            (setq winner-ring-alist (plist-get state :ring))
+            (when (boundp 'winner-pending-alist)
+              (setq winner-pending-alist (or (plist-get state :pending) nil))))
+        (setq winner-ring-alist nil)
+        (when (boundp 'winner-pending-alist)
+          (setq winner-pending-alist nil))))))
+
+(add-hook 'tab-bar-tab-pre-change-functions #'my/winner-save-for-tab)
+(add-hook 'tab-bar-tab-post-change-functions #'my/winner-restore-for-tab)
 
 (provide '04_tabspace)
