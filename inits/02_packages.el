@@ -55,9 +55,9 @@
   (defun web-mode-hook ()
     "Hooks for Web mode."
     (setq time-stamp-line-limit -200)
-    (if (not (memq 'time-stamp write-file-hooks))
-        (setq write-file-hooks
-              (cons 'time-stamp write-file-hooks))))
+    (if (not (memq 'time-stamp write-file-functions))
+        (setq write-file-functions
+              (cons 'time-stamp write-file-functions))))
   :mode "\\.html"  "\\.json" "\\.js" "\\.php" "\\.css"
   :custom ((web-mode-markup-indent-offset . 2)
            (web-mode-css-indent-offset . 2)

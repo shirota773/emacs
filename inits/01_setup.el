@@ -1,4 +1,4 @@
-(leaf *auto-seve-files
+(leaf *auto-save-files
   :config
   :defvar
   my/backup-dir
@@ -33,23 +33,19 @@
                                    ))
   ;; 保存前に自動でクリーンアップ
   (whitespace-action . '(auto-cleanup))
-  (my/bg-color . "#282a36")
 
   :init
   (global-whitespace-mode 1)
 
   :config
   (set-face-attribute 'whitespace-trailing nil
-                      ;; :background my/bg-color
                       :background nil
                       :foreground "white"
                       :underline t)
   (set-face-attribute 'whitespace-tab nil
-                      ;; :background my/bg-color
                       :foreground "white"
                       :underline t)
   (set-face-attribute 'whitespace-space nil
-                      ;; :background "gray30"
                       :foreground "white"
                       :underline t
                       :weight 'bold)
@@ -58,7 +54,7 @@
 ;;bookmark C-x r mでブックマーク、C-x r l でブックマークを開く
 (setq bookmark-save-flag 1)
 (progn
-  (setq bookmak-sort-flag nil)
+  (setq bookmark-sort-flag nil)
   (defun bookmark-arrange-latest-top ()
     (let ((latest (bookmark-get-bookmark bookmark)))
       (setq bookmark-alist (cons latest (delq latest bookmark-alist))))

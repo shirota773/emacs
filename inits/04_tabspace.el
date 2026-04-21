@@ -1,4 +1,3 @@
-;; test
 (leaf tabspaces
   :ensure t
   :hook
@@ -144,56 +143,6 @@
 
 ;; Note: Enhanced buffer list implementation is in 04_tabspace_bufferlist.el
 ;; which will be loaded automatically by init-loader after this file.
-
-;; Old implementation removed below - replaced by 04_tabspace_bufferlist.el
-;; (defun my/tabspaces-list-tabs-and-buffers ()
-;;   "List all tabspaces (tab-bar tabs) and their buffers, clickable."
-;;   (interactive)
-;;   (let ((buf (get-buffer-create "*Tabspaces Buffers*"))
-;;         (i 1))
-;;     (with-current-buffer buf
-;;       (let ((inhibit-read-only t))
-;;         (erase-buffer)
-;;         (insert (format "Tabspaces and Buffers\n%s\n\n"
-;;                         (make-string 60 ?-)))
-;;         ;; ���ׂẴ^�u�𑖍�
-;;         (dolist (tab (tab-bar-tabs))
-;;           (let* ((tab-name (alist-get 'name tab))
-;;                  (current (eq tab (tab-bar--current-tab)))
-;;                  (buffers (alist-get 'wc-bl tab)))
-;;             ;; �^�u�s
-;;             (insert-text-button
-;;              (format "[%d] %s%s\n" i tab-name (if current "  <== current" ""))
-;;              'action `(lambda (_)
-;;                         (tab-bar-switch-to-tab ,tab-name))
-;;              'follow-link t)
-;;             ;; �o�b�t�@�s
-;;             (if buffers
-;;                 (dolist (b buffers)
-;;                   (when (buffer-live-p b)
-;;                     (insert "   ")
-;;                     ;; �o�b�t�@���J���Ƃ��Ƀ^�u�ؑւ��s��
-;;                     (insert-text-button
-;;                      (buffer-name b)
-;;                      'action `(lambda (_)
-;;                                 (tab-bar-switch-to-tab ,tab-name)
-;;                                 (switch-to-buffer ,b))
-;;                      'follow-link t)
-;;                     (insert "\n")))
-;;               (insert "   (no buffers)\n"))
-;;             (insert "\n")
-;;             (setq i (1+ i)))))
-;;       (goto-char (point-min))
-;;       (special-mode))
-;;     (pop-to-buffer buf)))
-;; 
-;; ;; Helper function to get buffers in a tab
-;; (defun tabspaces--buffers-in-tab (tab)
-;;   "Return a list of buffers belonging to TAB."
-;;   (let* ((tab-name (alist-get 'name tab))
-;;          (tab-space (tabspaces--workspace tab-name)))
-;;     (when tab-space
-;;       (seq-filter #'buffer-live-p (alist-get 'buffers tab-space)))))
 
 ;; ========================================
 ;; Per-tab session save/load functionality

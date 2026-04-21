@@ -79,7 +79,7 @@
 ;;    "    ")
 (leaf mykie
   :ensure t
-  :defun (mykei:global-set-key)
+  :defun (mykie:global-set-key)
   :custom
   (mykie:use-major-mode-key-override . t)
 
