@@ -1,7 +1,7 @@
 (leaf *coding
   :config
   (prefer-coding-system 'utf-8-unix)
-  ;; (set-language-enviroment "Japanese")
+  ;; (set-language-environment "Japanese")
   (setq default-buffer-file-coding-system 'utf-8-unix)
   (set-buffer-file-coding-system 'utf-8-unix)
   (set-terminal-coding-system 'utf-8-unix)

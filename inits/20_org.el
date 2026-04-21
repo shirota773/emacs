@@ -11,12 +11,6 @@
 
 (leaf *my/org
   :config
-  ;; (add-hook 'org-mode-hook
-  ;;           '((set-fill-column 64)
-  ;;             (display-fill-column-indicator-mode 1)))
-  ;; (remove-hook 'org-mode-hook
-  ;;           '((set-fill-column 64)
-  ;;             (display-fill-column-indicator-mode 1)))
   (defun my/extract-headlines ()
     "Extract headlines from the current org file."
     (interactive)
@@ -80,14 +74,14 @@
            (file-exists-p t))
       ;; クリップボードの画像を一時的なファイルに保存する
       (if (not (eq 0 (call-process "pngpaste" nil nil nil temporary-file)))
-          (message "Error: Cannnot save image-file from clipboard.")
+          (message "Error: Cannot save image-file from clipboard.")
         ;; 一時ファイルの保存が成功した場合、ユーザーに新しいファイル名を尋ね、存在するファイル名が指定されるまで繰り返す
         (while file-exists-p
           (setq filename (read-string
                           (concat "image-file name [" org-directory "/images]/ {.png}: ") filename))
           (setq file-exists-p (file-exists-p (expand-file-name (concat filename ".png") default-directory)))
           (when file-exists-p
-            (message "Error: Aleady exist file.")
+            (message "Error: File already exists.")
             (sit-for 1)))
         (rename-file temporary-file (expand-file-name filename default-directory) t)
         (insert (concat "[[file:" (expand-file-name filename default-directory) "]]"))
@@ -213,10 +207,6 @@ Cycling starts at `my/org-startup-level'."
           (org-global-cycle arg)
         (progn (org-overview)
                (outline-hide-sublevels level)))))
-
-  ;; )
-  ;; (add-hook 'org-mode-hook #'my/org-startup-level)
-  (remove-hook 'org-mode-hook #'my/org-startup-level)
 
   (defun ladicle/task-clocked-time ()
     "Return a string with the clocked time and effort, if any"
@@ -447,7 +437,7 @@ TEXT is the point."
 (setq org-memo "~/org_icloud/memo.org")
 (setq org-todo "~/org_icloud/todo.org")
 
-(defun org-caputure-set-target ()
+(defun org-capture-set-target ()
   (setq org-capture-target-diary (today-time-string)
         org-capture-target-journal "fuga")
   )
