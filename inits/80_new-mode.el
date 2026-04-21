@@ -361,7 +361,7 @@ To customize, modify the patterns in the cond statement below."
 
     ;; Restore cursor position relative to indentation
     (when (> point-offset 0)
-      (forward-char point-offset))))
+      (forward-char point-offset)))
 
 ;;; ============================================================================
 ;;; Keybindings

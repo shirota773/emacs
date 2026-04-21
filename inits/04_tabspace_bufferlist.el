@@ -52,6 +52,9 @@ Mark types: 'delete 'save 'mark 'kill")
     (buffer-file-name buffer))
    ((eq my/tabspaces-filter-mode 'special)
     (not (buffer-file-name buffer)))
+   ((eq my/tabspaces-filter-mode 'current-tab)
+    (let ((current-tab-name (alist-get 'name (tab-bar--current-tab))))
+      (member current-tab-name (my/tabspaces--get-buffer-tabs buffer))))
    (t t)))
 
 (defun my/tabspaces--sort-buffers (buffers)
@@ -84,19 +87,26 @@ Mark types: 'delete 'save 'mark 'kill")
     (insert (format " [Sort: %s]\n" my/tabspaces-sort-mode))
     (insert (propertize (make-string 80 ?-) 'face '(:foreground "gray50")) "\n")
     (insert (propertize "Mark: " 'face '(:foreground "gray50"))
-            (propertize "[d]elete [k]ill [s]ave [m]ark [u]nmark [U]nmark-all [t]oggle [x]execute\n" 'face '(:foreground "gray50")))
+            (propertize "[d]elete [k]ill [s]ave [m]ark [u]nmark [U]nmark-all [t]oggle [x]execute [M]ove-to-tab\n" 'face '(:foreground "gray50")))
     (insert (propertize "Filter: " 'face '(:foreground "gray50"))
-            (propertize "[/ m]odified [/ f]ile [/ s]pecial [/ /]clear\n" 'face '(:foreground "gray50")))
+            (propertize "[/ m]odified [/ f]ile [/ s]pecial [/ t]current-tab [/ /]clear\n" 'face '(:foreground "gray50")))
     (insert (propertize "Sort: " 'face '(:foreground "gray50"))
             (propertize "[o n]ame [o m]odified [o s]ize  " 'face '(:foreground "gray50")))
+    (insert (propertize "Layout: " 'face '(:foreground "gray50"))
+            (propertize "[S]ave-layout [L]oad-layout\n" 'face '(:foreground "gray50")))
     (insert (propertize "Other: " 'face '(:foreground "gray50"))
             (propertize "[g]refresh [RET]visit [% n]ame-regexp [* m]ark-modified\n\n" 'face '(:foreground "gray50")))
 
     ;; Iterate through all tabs
+    (let ((current-tab-name (alist-get 'name (tab-bar--current-tab))))
     (dolist (tab (tab-bar-tabs))
       (let* ((tab-name (alist-get 'name tab))
-             (current (eq tab (tab-bar--current-tab)))
-             (all-buffers (seq-filter #'buffer-live-p (or (alist-get 'wc-bl tab) '())))
+             (current (string= tab-name current-tab-name))
+             ;; アクティブタブは wc-bl を持たないため frame の buffer-list から取得する
+             (all-buffers (seq-filter #'buffer-live-p
+                                      (if current
+                                          (frame-parameter nil 'buffer-list)
+                                        (or (alist-get 'wc-bl tab) '()))))
              (filtered-buffers (seq-filter #'my/tabspaces--should-show-buffer-p all-buffers))
              (sorted-buffers (my/tabspaces--sort-buffers filtered-buffers)))
         ;; Tab header
@@ -150,7 +160,7 @@ Mark types: 'delete 'save 'mark 'kill")
                            'tab-name tab-name)))))
           (insert "   (no buffers)\n"))
         (insert "\n")
-        (setq i (1+ i))))
+        (setq i (1+ i)))))
     ;; Move cursor to first buffer line (skip header and tab name)
     (goto-char (point-min))
     (when (re-search-forward "^  [DKS\\* ]" nil t)
@@ -281,6 +291,45 @@ Mark types: 'delete 'save 'mark 'kill")
   (setq my/tabspaces-filter-mode nil)
   (my/tabspaces-refresh-buffer-list))
 
+(defun my/tabspaces-filter-current-tab ()
+  "Filter to show only buffers belonging to the current tab."
+  (interactive)
+  (setq my/tabspaces-filter-mode 'current-tab)
+  (my/tabspaces-refresh-buffer-list))
+
+;; Layout save/load from buffer list
+(defun my/tabspaces-save-layout ()
+  "Save current window arrangement as a named layout."
+  (interactive)
+  (call-interactively #'my/tabspace-save-layout)
+  (my/tabspaces-refresh-buffer-list))
+
+(defun my/tabspaces-load-layout ()
+  "Load a named layout for the current tab."
+  (interactive)
+  (call-interactively #'my/tabspace-load-layout)
+  (my/tabspaces-refresh-buffer-list))
+
+;; Move buffer to another tab
+(defun my/tabspaces-move-buffer-to-tab ()
+  "Move buffer at point to another tab."
+  (interactive)
+  (let* ((buf (my/tabspaces-buffer-at-point))
+         (current-tab-name (get-text-property (point) 'tab-name))
+         (other-tabs (seq-remove
+                      (lambda (name) (string= name current-tab-name))
+                      (mapcar (lambda (tab) (alist-get 'name tab)) (tab-bar-tabs))))
+         (target-tab (completing-read "Move to tab: " other-tabs nil t)))
+    (when (and buf target-tab)
+      (let ((orig-tab (alist-get 'name (tab-bar--current-tab))))
+        (tab-bar-switch-to-tab target-tab)
+        (set-frame-parameter nil 'buffer-list
+                             (cons buf (delq buf (frame-parameter nil 'buffer-list))))
+        (tab-bar-switch-to-tab orig-tab))
+      (tabspaces-remove-selected-buffer buf)
+      (my/tabspaces-refresh-buffer-list)
+      (message "Moved '%s' → '%s'" (buffer-name buf) target-tab))))
+
 ;; Sort commands
 (defun my/tabspaces-sort-by-name ()
   "Sort buffers by name."
@@ -355,7 +404,13 @@ Mark types: 'delete 'save 'mark 'kill")
     (define-key map (kbd "/ m") #'my/tabspaces-filter-modified)
     (define-key map (kbd "/ f") #'my/tabspaces-filter-file)
     (define-key map (kbd "/ s") #'my/tabspaces-filter-special)
+    (define-key map (kbd "/ t") #'my/tabspaces-filter-current-tab)
     (define-key map (kbd "/ /") #'my/tabspaces-filter-clear)
+    ;; Layout save/load
+    (define-key map (kbd "S") #'my/tabspaces-save-layout)
+    (define-key map (kbd "L") #'my/tabspaces-load-layout)
+    ;; Move to tab
+    (define-key map (kbd "M") #'my/tabspaces-move-buffer-to-tab)
     ;; Sort commands
     (define-key map (kbd "o n") #'my/tabspaces-sort-by-name)
     (define-key map (kbd "o m") #'my/tabspaces-sort-by-modified)
@@ -393,6 +448,7 @@ Filter commands:
   / m - Show only modified buffers
   / f - Show only file buffers
   / s - Show only special buffers
+  / t - Show only buffers in current tab
   / / - Clear all filters
 
 Sort commands:
@@ -403,6 +459,13 @@ Sort commands:
 Bulk operations:
   % n - Mark buffers matching regexp
   * m - Mark all modified buffers
+
+Layout commands:
+  S   - Save current tab's layout (window config + buffers)
+  L   - Load a saved tab layout
+
+Move commands:
+  M   - Move buffer at point to another tab
 
 Other commands:
   RET - Visit buffer at point
