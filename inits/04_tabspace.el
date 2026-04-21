@@ -401,7 +401,7 @@ If TAB-NAME is nil, prompt for a session to delete."
   (interactive)
   (my/tabspace--ensure-sessions-dir)
   (let ((session-files
-         (directory-files my/tabspace-sessions-dir nil "\.el$")))
+         (directory-files my/tabspace-sessions-dir nil "\\.el$")))
     (if (null session-files)
         (message "No saved tab sessions found")
       (with-output-to-temp-buffer "*Tab Sessions*"
@@ -432,7 +432,7 @@ If LAYOUT-NAME is nil or omitted, uses \"default\"."
          (new-layouts (cons (cons layout-name window-state)
                             (cl-remove layout-name layouts :key #'car :test #'equal))))
     (my/tabspace--write-session tab-name
-      (plist-put (copy-sequence session) :layouts new-layouts))
+      (plist-put (copy-tree session) :layouts new-layouts))
     (message "Layout '%s' saved for tab '%s'" layout-name tab-name)))
 
 (defun my/tabspace-load-layout (&optional layout-name)
@@ -464,15 +464,17 @@ If LAYOUT-NAME is nil, prompt with completion."
          (session (my/tabspace--read-session tab-name)))
     (if (not session)
         (message "No session found for tab '%s'" tab-name)
-      (let* ((layouts (plist-get session :layouts))
-             (names (mapcar #'car layouts))
-             (selected (or layout-name
-                           (completing-read "Delete layout: " names nil t))))
-        (when (y-or-n-p (format "Delete layout '%s'? " selected))
-          (my/tabspace--write-session tab-name
-            (plist-put (copy-sequence session) :layouts
-                       (cl-remove selected layouts :key #'car :test #'equal)))
-          (message "Layout '%s' deleted" selected))))))
+      (let* ((layouts (plist-get session :layouts)))
+        (if (not layouts)
+            (message "No layouts saved for tab '%s'" tab-name)
+          (let* ((names (mapcar #'car layouts))
+                 (selected (or layout-name
+                               (completing-read "Delete layout: " names nil t))))
+            (when (y-or-n-p (format "Delete layout '%s'? " selected))
+              (my/tabspace--write-session tab-name
+                (plist-put (copy-tree session) :layouts
+                           (cl-remove selected layouts :key #'car :test #'equal)))
+              (message "Layout '%s' deleted" selected))))))))
 
 (defun my/tabspace-list-layouts ()
   "List all saved layouts for the current tab."

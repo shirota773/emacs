@@ -6,40 +6,38 @@
   (defun open-file-in-external-app ()
     "Open a file in the default external application using a find-file-like interface."
     (interactive)
-    (let* ((file (expand-file-name (read-file-name "Open file: "))
-                 (command (cond
-                            (windows-nt-p (list "cmd.exe" "/c" "start" "" file))
-                            (darwin-p (list "open" file))
-                            (linux-p (list "xdg-open" file)))))
-           (apply 'start-process "external-app" nil (car command) (cdr command)))))
+    (let* ((file (expand-file-name (read-file-name "Open file: ")))
+           (command (cond
+                      (windows-nt-p (list "cmd.exe" "/c" "start" "" file))
+                      (darwin-p (list "open" file))
+                      (linux-p (list "xdg-open" file)))))
+      (apply 'start-process "external-app" nil (car command) (cdr command))))
 
 
   (defun my/search-word-store (str)
-    (interactive "sStore worl: ")
-    (setq word-stored str))
+    (interactive "sStore word: ")
+    (setq my/word-stored str))
 
   (defun my/search-word-regex-store (str)
     (interactive "sStore regex: ")
-    (setq regex-stored str))
+    (setq my/word-regex-stored str))
 
   (defun my/search-forward-regex-stored ()
     (interactive)
     (let ((word-point (point))
-          (atmark-offset (string-match "@" regex-stored))
-          (word-regex-stored-replaced (replace-regexp-in-string "@" "" regex-stored)))
+          (atmark-offset (string-match "@" my/word-regex-stored))
+          (word-regex-stored-replaced (replace-regexp-in-string "@" "" my/word-regex-stored)))
       (search-forward-regexp word-regex-stored-replaced)
       (backward-char (length word-regex-stored-replaced))
       (forward-char atmark-offset)))
 
-  (defun my/search-word-stored-word (i)
-    ;; (interactive)
+  (defun my/search-forward-stored-word ()
+    (interactive)
     (search-forward my/word-stored))
-  (defun my/search-word-stored-word-forward ()
-    ;; (interactive)
-    (search-forward my/word-stored))
-  (defun my/search-word-stored-word (i)
-    ;; (interactive)
-    (search-backrward my/word-stored))
+
+  (defun my/search-backward-stored-word ()
+    (interactive)
+    (search-backward my/word-stored))
 
   :bind
   (("M-s s" . my/search-word-store)
@@ -102,7 +100,7 @@
       (if (get-buffer new-name)
           (message "A buffer named '%s' already exists!" new-name)
         (progn
-          (rename-file name new-name 1)
+          (rename-file filename new-name 1)
           (rename-buffer new-name)
           (set-visited-file-name new-name)
           (set-buffer-modified-p nil))))))

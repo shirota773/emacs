@@ -91,8 +91,7 @@
   :hook
   (((python-mode-hook web-mode-hook) . highlight-indent-guides-mode))
   :custom
-  (highl
-   ight-indent-guides-method . 'column)
+  (highlight-indent-guides-method . 'column)
    ;; (highlight-indent-guides-method . 'character)
 
   ;; (highlight-indent-guides-auto-enabled . t)
@@ -348,8 +347,10 @@ do nothing. And suppress the output from `message' and
 ;; grep-a-lot-clear-stack全grepバッファを削除するM-g _
 
 (leaf open-junk-file
+  :ensure t
+  :config
   (setq open-junk-file-format "~/junk/%Y-%m-%d-%H.")
-  (setq ediff-window-stup-function 'ediff-setup-windows-plain))
+  (setq ediff-window-setup-function 'ediff-setup-windows-plain))
 
 
 
