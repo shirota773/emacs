@@ -74,7 +74,7 @@
  ("k" . previous-line)
  )
 
-(when (eq system-type 'darwin)
+(when darwin-p
    (bind-key (kbd "C-M-o") 'other-window))
 ;;マクロ
                                         ;M-x name-last-kbd-macro で直前のマクロに名前をつける

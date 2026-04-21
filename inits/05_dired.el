@@ -33,8 +33,11 @@
   :hook
 
   :custom
+  (dired-use-ls-dired . (not darwin-p))
   (dired-listing-switches
-   . "-l --almost-all --human-readable --group-directories-first --no-group")
+   . (if darwin-p
+         "-lAh"
+       "-l --almost-all --human-readable --group-directories-first --no-group"))
   (dirvish-preview-disabled-exts . '("mp4" "pdf" "mkv"))
   (dirvish-hide-details . t)
   (dirvish-side-display-alist . '((side . right) (slot . -1)))
