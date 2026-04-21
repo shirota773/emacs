@@ -124,7 +124,7 @@ Mark types: 'delete 'save 'mark 'kill")
             (dolist (b sorted-buffers)
               (when (buffer-live-p b)
                 (let* ((buf-name (buffer-name b))
-                       (mark-type (alist-get b my/tabspaces-buffer-marks))
+                       (mark-type (alist-get buf-name my/tabspaces-buffer-marks nil nil #'equal))
                        (mark-char (cond
                                    ((eq mark-type 'delete) "D")
                                    ((eq mark-type 'kill) "K")
@@ -156,7 +156,7 @@ Mark types: 'delete 'save 'mark 'kill")
                                    (if file (format " (%s)" (abbreviate-file-name file)) "")
                                    (or tabs-info ""))
                            'face face
-                           'buffer b
+                           'buffer-name buf-name
                            'tab-name tab-name)))))
           (insert "   (no buffers)\n"))
         (insert "\n")
@@ -167,14 +167,15 @@ Mark types: 'delete 'save 'mark 'kill")
       (beginning-of-line))))
 
 (defun my/tabspaces-buffer-at-point ()
-  "Return the buffer object at point, or nil."
-  (get-text-property (point) 'buffer))
+  "Return the live buffer object at point, or nil if buffer was killed."
+  (let ((name (get-text-property (point) 'buffer-name)))
+    (and name (get-buffer name))))
 
 (defun my/tabspaces-mark-buffer (mark-type)
   "Mark the buffer at point with MARK-TYPE."
   (let ((buf (my/tabspaces-buffer-at-point)))
     (when buf
-      (setf (alist-get buf my/tabspaces-buffer-marks) mark-type)
+      (setf (alist-get (buffer-name buf) my/tabspaces-buffer-marks nil nil #'equal) mark-type)
       (my/tabspaces-refresh-buffer-list)
       (forward-line 1))))
 
@@ -184,7 +185,7 @@ Mark types: 'delete 'save 'mark 'kill")
   (let ((buf (my/tabspaces-buffer-at-point)))
     (when buf
       (setq my/tabspaces-buffer-marks
-            (assq-delete-all buf my/tabspaces-buffer-marks))
+            (assoc-delete-all (buffer-name buf) my/tabspaces-buffer-marks))
       (my/tabspaces-refresh-buffer-list)
       (forward-line 1))))
 
@@ -216,8 +217,9 @@ Mark types: 'delete 'save 'mark 'kill")
         (save-list '()))
     ;; Collect marked buffers
     (dolist (entry my/tabspaces-buffer-marks)
-      (let ((buf (car entry))
-            (mark-type (cdr entry)))
+      (let* ((name (car entry))
+             (buf (get-buffer name))
+             (mark-type (cdr entry)))
         (when (buffer-live-p buf)
           (cond
            ((eq mark-type 'delete)
@@ -360,10 +362,11 @@ Mark types: 'delete 'save 'mark 'kill")
     (while (not (eobp))
       (let ((buf (my/tabspaces-buffer-at-point)))
         (when buf
-          (if (alist-get buf my/tabspaces-buffer-marks)
-              (setq my/tabspaces-buffer-marks
-                    (assq-delete-all buf my/tabspaces-buffer-marks))
-            (setf (alist-get buf my/tabspaces-buffer-marks) 'mark))))
+          (let ((name (buffer-name buf)))
+            (if (alist-get name my/tabspaces-buffer-marks nil nil #'equal)
+                (setq my/tabspaces-buffer-marks
+                      (assoc-delete-all name my/tabspaces-buffer-marks))
+              (setf (alist-get name my/tabspaces-buffer-marks nil nil #'equal) 'mark)))))
       (forward-line 1)))
   (my/tabspaces-refresh-buffer-list))
 
@@ -375,7 +378,7 @@ Mark types: 'delete 'save 'mark 'kill")
     (while (not (eobp))
       (let ((buf (my/tabspaces-buffer-at-point)))
         (when (and buf (string-match-p regexp (buffer-name buf)))
-          (setf (alist-get buf my/tabspaces-buffer-marks) 'mark)))
+          (setf (alist-get (buffer-name buf) my/tabspaces-buffer-marks nil nil #'equal) 'mark)))
       (forward-line 1)))
   (my/tabspaces-refresh-buffer-list))
 
@@ -387,7 +390,7 @@ Mark types: 'delete 'save 'mark 'kill")
     (while (not (eobp))
       (let ((buf (my/tabspaces-buffer-at-point)))
         (when (and buf (buffer-modified-p buf))
-          (setf (alist-get buf my/tabspaces-buffer-marks) 'mark)))
+          (setf (alist-get (buffer-name buf) my/tabspaces-buffer-marks nil nil #'equal) 'mark)))
       (forward-line 1)))
   (my/tabspaces-refresh-buffer-list))
 

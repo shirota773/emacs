@@ -45,7 +45,7 @@
   ;; (org-extend-today-until . )
   (org-journal-file-type . 'monthly)
   ;; (org-journal-file-header . "")
-  (org-journal-file-header .'org-journal-file-header-func)
+  (org-journal-file-header . #'org-journal-file-header-func)
   (org-journal-hide-entries-p . t)
   (org-journal-time-prefix . "*** ")
   (org-journal-prefix-key . "C-c j"))
@@ -56,7 +56,6 @@
 
 
 (setq org-agenda-file-regexp "\\`\\\([^.].*\\.org\\\|[0-9]\\\{8\\\}\\\(\\.gpg\\\)?\\\)\\'")
-(defvar org-agenda-files nil)
 (add-to-list 'org-agenda-files org-journal-dir)
 
 (setq org-journal-enable-agenda-integration t

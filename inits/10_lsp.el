@@ -78,154 +78,23 @@
 
 ;; (define-key company-active-map (kbd "C-j") #'my/company-insert-common)
 
-
-(global-company-mode t)
-
 ;; DAP
-(use-package dap-mode
-  ;; Uncomment the config below if you want all UI panes to be hidden by default!
-  ;; :custom
-  ;; (lsp-enable-dap-auto-configure nil)
-  ;; :config
-  ;; (dap-ui-mode 1)
+(leaf dap-mode
+  :ensure t
   :commands dap-debug
   :config
-  ;; Set up Node debugging
   (require 'dap-node)
-  (dap-node-setup) ;; Automatically installs Node debug adapter if needed
+  (dap-node-setup)
   (require 'dap-go)
   (dap-go-setup)
   (require 'dap-hydra)
   (require 'dap-gdb-lldb)
   (dap-gdb-lldb-setup)
-
-  ;; Bind `C-c l d` to `dap-hydra` for easy access
-  (general-define-key
-   :keymaps 'lsp-mode-map
-   :prefix lsp-keymap-prefix
-   "d" '(dap-hydra t :wk "debugger")))
-
-;; '(lsp-auto-guess-root t)
-;;  '(lsp-completion-enable nil)
-;;  '(lsp-document-sync-method 'incremental)
-;;  '(lsp-log-io nil)
-;;  '(lsp-prefer-flymake 'flymake)
-;;  '(lsp-print-performance nil)
-;;  '(lsp-response-timeout 5)
-;;  '(lsp-trace nil t)
-;;  '(lsp-ui-doc-enable t)
-;;  '(lsp-ui-doc-header t)
-;;  '(lsp-ui-doc-include-signature t)
-;;  '(lsp-ui-doc-max-height 30)
-;;  '(lsp-ui-doc-max-width 150)
-;;  '(lsp-ui-doc-position 'top)
-;;  '(lsp-ui-doc-use-childframe t)
-;;  '(lsp-ui-doc-use-webkit t)
-;;  '(lsp-ui-flycheck-enable nil t)
-;;  '(lsp-ui-imenu-enable nil)
-;;  '(lsp-ui-imenu-kind-position 'top)
-;;  '(lsp-ui-peek-enable t)
-;;  '(lsp-ui-peek-fontify 'on-demand)
-;;  '(lsp-ui-peek-list-width 50)
-;;  '(lsp-ui-peek-peek-height 20)
-;;  '(lsp-ui-sideline-enable nil)
-;;  '(lsp-ui-sideline-ignore-duplicate t)
-;;  '(lsp-ui-sideline-show-code-actions nil)
-;;  '(lsp-ui-sideline-show-diagnostics nil)
-;;  '(lsp-ui-sideline-show-hover t)
-;;  '(lsp-ui-sideline-show-symbol t)
-
-;; (use-package dap-LANGUAGE) to load the dap adapter for your language
-
-
-
-;; (leaf lsp-python
-;;   :after (lsp-mode python-mode)
-;;   ;; :custom (lsp-python-language-server-flags '(
-;;     ;; "-gocodecompletion"
-;;     ;; "-diagnostics"
-;;     ;; "-lint-tool=golint"))
-;;   :hook (python-mode . lsp-python-enable)
-;;   :commands lsp-python-enable)
-
-
-;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; lsp
-;; (leaf lsp-mode
-;;   :custom
-;;   ; debug
-;;   (lsp-print-io . nil)
-;;   (lsp-trace . nil)
-;;   (lsp-print-performance . nil)
-;;   ; general
-;;   (lsp-auto-guess-root . t)
-;;   (lsp-document-sync-method . 'incremental) ;; always send incremental document
-;;   (lsp-response-timeout . 5)
-;;   (lsp-prefer-flymake . 'flymake)
-;;   (lsp-enable-completion-at-point . nil)
-
-;;   :hook ((python-mode . lsp))
-;;   :bind ((python-mode-map
-;;   ("C-c r" . lsp-rename)))
-;;   )
-
-;; (leaf lsp-ui
-;;   :custom
-;;   ;; lsp-ui-doc
-;;   (lsp-ui-doc-enable . t)
-;;   (lsp-ui-doc-header . t)
-;;   (lsp-ui-doc-include-signature . t)
-;;   (lsp-ui-doc-position . 'top) ;; top, bottom, or at-point
-;;   (lsp-ui-doc-max-width . 150)
-;;   (lsp-ui-doc-max-height . 30)
-;;   (lsp-ui-doc-use-childframe . t)
-;;   (lsp-ui-doc-use-webkit . t)
-;;   ;; lsp-ui-flycheck
-;;   (lsp-ui-flycheck-enable . nil)
-;;   ;; lsp-ui-sideline
-;;   (lsp-ui-sideline-enable . nil)
-;;   (lsp-ui-sideline-ignore-duplicate . t)
-;;   (lsp-ui-sideline-show-symbol . t)
-;;   (lsp-ui-sideline-show-hover . t)
-;;   (lsp-ui-sideline-show-diagnostics . nil)
-;;   (lsp-ui-sideline-show-code-actions . nil)
-;;   ;; lsp-ui-imenu
-;;   (lsp-ui-imenu-enable . nil)
-;;   (lsp-ui-imenu-kind-position . 'top)
-;;   ;; lsp-ui-peek
-;;   (lsp-ui-peek-enable . t)
-;;   (lsp-ui-peek-peek-height . 20)
-;;   (lsp-ui-peek-list-width . 50)
-;;   (lsp-ui-peek-fontify .'on-demand) ;; never, on-demand, or always
-;;   :preface
-;;   (defun ladicle/toggle-lsp-ui-doc ()
-;; (interactive)
-;; (if lsp-ui-doc-mode
-;;         (progn
-;;           (lsp-ui-doc-mode -1)
-;;           (lsp-ui-doc--hide-frame))
-;;   (lsp-ui-doc-mode 1)))
-;;   :bind ((lsp-mode-map
-;;   ("C-c C-r" . lsp-ui-peek-find-references)
-;;   ("C-c C-j" . lsp-ui-peek-find-definitions)
-;;   ("C-c i"   . lsp-ui-peek-find-implementation)
-;;   ("C-c m"   . lsp-ui-imenu)
-;;   ("C-c s"   . lsp-ui-sideline-mode)
-;;   ("C-c d"   . ladicle/toggle-lsp-ui-doc)))
-;;   :hook
-;;   (lsp-mode . lsp-ui-mode))
-
-;; ;; Lsp completion
-;; (use-package company-lsp
-;;   :custom
-;;   (company-lsp-cache-candidates t) ;; always using cache
-;;   (company-lsp-async t)
-;;   (company-lsp-enable-recompletion nil))
-
-
-;; (leaf company
-;;   :hook (((emacs-lisp-mode-hook python-mode) . company-mode))
-;;   :config
-;;   )
+  (when (fboundp 'general-define-key)
+    (general-define-key
+     :keymaps 'lsp-mode-map
+     :prefix lsp-keymap-prefix
+     "d" '(dap-hydra t :wk "debugger"))))
 
 ;; ein
 (leaf ein

@@ -29,8 +29,6 @@
            #'(lambda () (interactive)
               (list-buffers)
               (other-window 1)))
-(bind-key* (kbd "C-x k") 'kill-this-buffer)
-
 (bind-keys*
  ("<zenkaku-hankaku>" . toggle-input-method)
  ("C-0"     . delete-window)
@@ -38,8 +36,6 @@
  ("C-^"     . enlarge-window)
  ("C-."     . dabbrev-expand)
  ("<f12>"   . shell)
- ("M-/"     . undo-tree-redo)
- ("C-x C-q" . view-mode)
  ("M-/"     . undo-tree-redo)
  ("C-x C-q" . view-mode)
  ("C-x k"   . kill-current-buffer)
@@ -106,8 +102,6 @@
   (mykie:global-set-key "C-c 6"
     :default win-resume-menu
     :C-u win-resume-local)
-  (mykie:global-set-key "C-+"
-    :default my/helm-recentf)
   (mykie:global-set-key "C-w"
     :default move-to-mark
     :region kill-region)
