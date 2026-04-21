@@ -16,7 +16,7 @@
   ;; https://alpha2phi.medium.com/emacs-lsp-and-dap-7c1786282324
   (leaf lsp-mode
     :init
-    (setq lsp-keymap-prefi x "C-c l")
+    (setq lsp-keymap-prefix "C-c l")
     :hook ((python-mode . lsp-deferred))
     :commands (lsp lsp-deferred)
     )
