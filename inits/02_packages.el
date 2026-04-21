@@ -136,7 +136,7 @@
          ("C-c m" . vr/mc-mark)
          (isearch-mode-map
           ("C-t" . isearch-toggle-regexp)))
-  :setq (vr/engine quote python))
+  :setq ((vr/engine . 'python)))
 
 (leaf key-chord
   :ensure t

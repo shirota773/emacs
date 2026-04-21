@@ -152,5 +152,5 @@
   )
 
 (defun my/ivy-cacito-with-arg (x)
-  (mellsage "Selected item: %s" x))
+  (message "Selected item: %s" x))
 ;; (define-key ivy-minibuffer-map (kbd "C-c c") 'my/ivy-cacito-with-arg)
