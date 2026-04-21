@@ -474,7 +474,7 @@ If LAYOUT-NAME is nil, prompt with completion."
               (my/tabspace--write-session tab-name
                 (plist-put (copy-tree session) :layouts
                            (cl-remove selected layouts :key #'car :test #'equal)))
-              (message "Layout '%s' deleted" selected)))))))
+              (message "Layout '%s' deleted" selected))))))))
 
 (defun my/tabspace-list-layouts ()
   "List all saved layouts for the current tab."

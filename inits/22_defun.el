@@ -11,7 +11,7 @@
                       (windows-nt-p (list "cmd.exe" "/c" "start" "" file))
                       (darwin-p (list "open" file))
                       (linux-p (list "xdg-open" file)))))
-      (apply 'start-process "external-app" nil (car command) (cdr command)))))
+      (apply 'start-process "external-app" nil (car command) (cdr command))))
 
 
   (defun my/search-word-store (str)

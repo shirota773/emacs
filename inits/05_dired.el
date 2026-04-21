@@ -66,8 +66,8 @@
        ("e" "~/.emacs.d/" "emacs")))
 
   :bind
-  ("M-s d" . dirvish-side)
-  ("M-s h" . #'dirvish-history-jump)
+  (("M-s d" . dirvish-side)
+   ("M-s h" . dirvish-history-jump))
 
   :config
 ;  (setq dirvish-path-separators (list
