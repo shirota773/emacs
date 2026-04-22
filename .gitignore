@@ -1,0 +1,3 @@
+# Ignore init-loader logs
+inits/*@*
+inits/*.local.*
