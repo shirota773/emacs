@@ -62,8 +62,8 @@
                   cl-functions
                   interactive-only
                   make-local))
-(add-to-list 'load-path "~/.emacs.d/auto-install")
-(add-to-list 'load-path "~/.emacs.d/elisp")
+(add-to-list 'load-path "~/.emacs.d/auto-install" t)
+(add-to-list 'load-path "~/.emacs.d/elisp" t)
 
 
 ;; theme
@@ -85,6 +85,10 @@
   (init-loader--show-log-after-init . 'error-only)
   :config
   (init-loader-load "~/.emacs.d/inits")
+  ;; local
+  (let ((local-file (expand-file-name "~/.emacs.local-inits")))
+    (when (file-exists-p local-file)
+      (init-loader-load local-file)))
   )
 ;; finished inits files ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
