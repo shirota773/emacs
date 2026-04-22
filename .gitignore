@@ -1,3 +1,19 @@
 # Ignore init-loader logs
 inits/*@*
 inits/*.local.*
+
+# Emacs package manager and temporary files
+elpa/
+auto-save-list/
+
+# Manually installed tools (currently unused)
+site-lisp/
+auto-install/
+dired-hacks/
+
+# macOS system files
+.DS_Store
+
+# Temporary workspace backups
+unused/
+backups/
