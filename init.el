@@ -1,15 +1,3 @@
-;; (package-initialize)
-;; (setq url-proxy-services
-;;        '(("no_proxy" . "^\\(localhost\\|10.*\\)")
-;;          ("http" . "proxy.com:8080")
-;;          ("https" . "proxy.com:8080")))
-
-;; (eval-and-compile
-;;   (when (or load-file-name byte-compile-current-file)
-;;    (setq user-emacs-directory
-;;          (expand-file-name
-;;           (file-name-directory (or load-file-name byte-compile-current-file))))))
-
 (prog1 "prepare leaf"
   (prog1 "package"
     (custom-set-variables

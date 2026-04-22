@@ -268,6 +268,41 @@
 
   )
 
+(leaf company
+  :ensure t
+  :custom
+  (company-idle-delay . 0.1)
+  (company-minimum-prefix-length . 2)
+  (company-selection-wrap-around . t)
+  (company-show-numbers . t)
+
+  :config
+  (global-company-mode t)
+
+  (set-face-attribute 'company-tooltip-selection nil
+                      :foreground "#a1ffcd" :background "#007771")
+  (set-face-attribute 'company-tooltip-common-selection nil
+                      :foreground "white" :background "#007771")
+
+  (defun my/company-insert-common ()
+    "Insert the common part of all candidates."
+    (interactive)
+    (when (company-manual-begin)
+      (company--insert-common)))
+
+  :bind
+  (:company-active-map
+   ("<return>" . nil)
+   ("RET" . nil)
+   ("<tab>" . nil)
+   ("TAB" . nil)
+   ("M-n" . company-select-next)
+   ("M-p" . company-select-previous)
+   ("<up>" . nil)
+   ("<down>" . nil)
+   ("C-j" . my/company-insert-common))
+  )
+
 (leaf recentf-ext
   :ensure t
   :init
