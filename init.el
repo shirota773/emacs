@@ -84,7 +84,7 @@
   :custom
   (init-loader--show-log-after-init . 'error-only)
   :config
-  (init-loader-load "~/.emacs.d/inits" "~/.cache/emacs/init-loader/")
+  (init-loader-load "~/.emacs.d/inits")
   )
 ;; finished inits files ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
