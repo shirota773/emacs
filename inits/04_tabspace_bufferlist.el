@@ -91,9 +91,7 @@ Mark types: 'delete 'save 'mark 'kill")
     (insert (propertize "Filter: " 'face '(:foreground "gray50"))
             (propertize "[/ m]odified [/ f]ile [/ s]pecial [/ t]current-tab [/ /]clear\n" 'face '(:foreground "gray50")))
     (insert (propertize "Sort: " 'face '(:foreground "gray50"))
-            (propertize "[o n]ame [o m]odified [o s]ize  " 'face '(:foreground "gray50")))
-    (insert (propertize "Layout: " 'face '(:foreground "gray50"))
-            (propertize "[S]ave-layout [L]oad-layout\n" 'face '(:foreground "gray50")))
+            (propertize "[o n]ame [o m]odified [o s]ize\n" 'face '(:foreground "gray50")))
     (insert (propertize "Other: " 'face '(:foreground "gray50"))
             (propertize "[g]refresh [RET]visit [% n]ame-regexp [* m]ark-modified\n\n" 'face '(:foreground "gray50")))
 
@@ -299,19 +297,6 @@ Mark types: 'delete 'save 'mark 'kill")
   (setq my/tabspaces-filter-mode 'current-tab)
   (my/tabspaces-refresh-buffer-list))
 
-;; Layout save/load from buffer list
-(defun my/tabspaces-save-layout ()
-  "Save current window arrangement as a named layout."
-  (interactive)
-  (call-interactively #'my/tabspace-save-layout)
-  (my/tabspaces-refresh-buffer-list))
-
-(defun my/tabspaces-load-layout ()
-  "Load a named layout for the current tab."
-  (interactive)
-  (call-interactively #'my/tabspace-load-layout)
-  (my/tabspaces-refresh-buffer-list))
-
 ;; Move buffer to another tab
 (defun my/tabspaces-move-buffer-to-tab ()
   "Move buffer at point to another tab."
@@ -411,9 +396,6 @@ Mark types: 'delete 'save 'mark 'kill")
     (define-key map (kbd "/ s") #'my/tabspaces-filter-special)
     (define-key map (kbd "/ t") #'my/tabspaces-filter-current-tab)
     (define-key map (kbd "/ /") #'my/tabspaces-filter-clear)
-    ;; Layout save/load
-    (define-key map (kbd "S") #'my/tabspaces-save-layout)
-    (define-key map (kbd "L") #'my/tabspaces-load-layout)
     ;; Move to tab
     (define-key map (kbd "M") #'my/tabspaces-move-buffer-to-tab)
     ;; Sort commands
@@ -465,10 +447,6 @@ Bulk operations:
   % n - Mark buffers matching regexp
   * m - Mark all modified buffers
 
-Layout commands:
-  S   - Save current tab's layout (window config + buffers)
-  L   - Load a saved tab layout
-
 Move commands:
   M   - Move buffer at point to another tab
 
@@ -490,5 +468,30 @@ Special features:
   (setq-local my/tabspaces-buffer-marks nil)
   (setq-local my/tabspaces-filter-mode 'file)  ; Default: hide special buffers
   (setq-local my/tabspaces-sort-mode 'name))
+
+;; Hide in-mode commands from M-x (still reachable via their key bindings).
+(dolist (cmd '(my/tabspaces-buffer-list-mode
+               my/tabspaces-refresh-buffer-list
+               my/tabspaces-visit-buffer
+               my/tabspaces-mark
+               my/tabspaces-mark-delete
+               my/tabspaces-mark-kill
+               my/tabspaces-mark-save
+               my/tabspaces-unmark-buffer
+               my/tabspaces-unmark-all
+               my/tabspaces-toggle-marks
+               my/tabspaces-execute
+               my/tabspaces-filter-modified
+               my/tabspaces-filter-file
+               my/tabspaces-filter-special
+               my/tabspaces-filter-current-tab
+               my/tabspaces-filter-clear
+               my/tabspaces-sort-by-name
+               my/tabspaces-sort-by-modified
+               my/tabspaces-sort-by-size
+               my/tabspaces-move-buffer-to-tab
+               my/tabspaces-mark-by-name-regexp
+               my/tabspaces-mark-modified-buffers))
+  (put cmd 'completion-predicate #'ignore))
 
 (provide '04_tabspace_bufferlist)
