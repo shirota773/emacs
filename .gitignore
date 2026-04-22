@@ -14,6 +14,12 @@ dired-hacks/
 # macOS system files
 .DS_Store
 
+# VSCode extension dumps (dap-mode/lsp download cache)
+.extension/
+
+# Claude Code configuration
+CLAUDE.md
+
 # Temporary workspace backups
 unused/
 backups/
