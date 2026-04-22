@@ -168,6 +168,8 @@
 
 (leaf undohist
   :ensure t
+  :custom
+  (undohist-directory . "~/.cache/emacs/undohist")
   :config
   (undohist-initialize)
   )
@@ -294,7 +296,7 @@ do nothing. And suppress the output from `message' and
 
 
   :config
-  (setq recentf-save-file "~/.recentf") ;; 保存先
+  ;; (setq recentf-save-file "~/.recentf") ;; 01_setup.elで~/.cache/emacs/recentfに設定済み
   (setq recentf-max-saved-items 1000)   ;; recentf に保存するファイルの数
   (setq recentf-exclude ;; recentfに含めいないファイルの指定
         '(".recentf"

@@ -18,8 +18,15 @@
   ;; recentf
   (recentf-save-file . "~/.cache/emacs/recentf")
   (savehist-file . "~/.cache/emacs/savehist")
-  (projectile-known-projects-file . "~/.emacs.d/projectile-bookmarks.eld")
+  (projectile-known-projects-file . "~/.cache/emacs/projectile-bookmarks.eld")
+  (smex-save-file . "~/.cache/emacs/smex-items")
 )
+
+(leaf transient
+  :custom
+  (transient-levels-file  . "~/.cache/emacs/transient/levels.el")
+  (transient-values-file  . "~/.cache/emacs/transient/values.el")
+  (transient-history-file . "~/.cache/emacs/transient/history.el"))
 
 (leaf whitespace
   :leaf-defer nil
