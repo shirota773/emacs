@@ -273,9 +273,9 @@
   (company-selection-wrap-around . t)
   (company-show-numbers . t)
 
-  :config
-  (global-company-mode t)
+  :hook (after-init-hook . global-company-mode)
 
+  :config
   (set-face-attribute 'company-tooltip-selection nil
                       :foreground "#a1ffcd" :background "#007771")
   (set-face-attribute 'company-tooltip-common-selection nil
