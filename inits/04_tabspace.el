@@ -372,7 +372,7 @@ If TAB-NAME is nil, prompt for a session to delete."
         (header-start (point-min)))
     (erase-buffer)
     (setq header-start (point))
-    (insert (propertize "Saved Tab Sessions\n" 'face 'bold))
+    ;; Title is rendered in `header-line-format'; body starts with the separator.
     (insert (propertize (make-string 60 ?=) 'face '(:foreground "gray50")) "\n")
     (insert (propertize
              "[a]dd [r]ename [+]add-file [d]mark-delete [u]nmark [U]nmark-all [x]execute\n"
@@ -439,6 +439,16 @@ If TAB-NAME is nil, prompt for a session to delete."
 
 (defun my/tabspace-session-list--file-at-point ()
   (get-text-property (point) 'file-path))
+
+(defun my/tabspace-session-list--ensure-on-item ()
+  "Bounce point off header lines onto the nearest item line.
+Works around the known `cursor-intangible-mode' edge case at point-min
+where the upward bounce cannot cross buffer start."
+  (when (and (eq major-mode 'my/tabspace-session-list-mode)
+             (null (my/tabspace-session-list--line-type)))
+    (let ((target (or (text-property-not-all (point) (point-max) 'line-type nil)
+                      (text-property-not-all (point-min) (point) 'line-type nil))))
+      (when target (goto-char target)))))
 
 (defun my/tabspace-session-list-toggle ()
   "Toggle file-list visibility for the session at point."
@@ -662,7 +672,11 @@ Key bindings:
   (setq-local my/tabspace-session-list--expanded nil)
   (setq-local my/tabspace-session-list--marked-sessions nil)
   (setq-local my/tabspace-session-list--marked-files nil)
-  (cursor-intangible-mode 1))
+  (setq-local header-line-format
+              (propertize "Saved Tab Sessions" 'face 'bold))
+  (cursor-intangible-mode 1)
+  (add-hook 'post-command-hook
+            #'my/tabspace-session-list--ensure-on-item nil t))
 
 ;; Hide in-mode commands from M-x (still reachable via their key bindings).
 (dolist (cmd '(my/tabspace-session-list-mode

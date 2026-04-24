@@ -31,15 +31,15 @@
           (select-window target-window))))
 
     (defun my/file-open-in-nth-window (file nth)
-    "n”Ô–Ú‚Ìwindow‚Åƒtƒ@ƒCƒ‹‚ğŠJ‚­B‚È‚¢ê‡‚Íì‚é"
+    "nï¿½Ô–Ú‚ï¿½windowï¿½Åƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½Jï¿½ï¿½ï¿½Bï¿½È‚ï¿½ï¿½ê‡ï¿½Íï¿½ï¿½"
     (let* ((sorted-windows (sort-windows-by-top-left))
            (window-count (length sorted-windows)))
       (if (< nth window-count)
-          ;; window‚ª‘¶İ‚·‚éê‡
+          ;; windowï¿½ï¿½ï¿½ï¿½ï¿½İ‚ï¿½ï¿½ï¿½ê‡
           (progn
             (activate-sorted-window-by-index nth)
             (find-file file))
-        ;; window‚ª‘¶İ‚µ‚È‚¢ê‡‚Í•ªŠ„‚µ‚Äì‚é
+        ;; windowï¿½ï¿½ï¿½ï¿½ï¿½İ‚ï¿½ï¿½È‚ï¿½ï¿½ê‡ï¿½Í•ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äï¿½ï¿½
         (progn
           (activate-sorted-window-by-index (1- window-count))
           (dotimes (_ (- (1+ nth) window-count))
@@ -47,12 +47,12 @@
           (activate-sorted-window-by-index nth)
           (find-file file)))))
 
-  ;; counsel-recentf‚ÌƒL[ƒ}ƒbƒvİ’è
+  ;; counsel-recentfï¿½ÌƒLï¿½[ï¿½}ï¿½bï¿½vï¿½İ’ï¿½
   (defun my/counsel-recentf-setup ()
     (let ((map (make-sparse-keymap)))
       (set-keymap-parent map ivy-minibuffer-map)
 
-      ;; C-t‚ÅƒfƒBƒŒƒNƒgƒŠ‚ğŠJ‚­
+      ;; C-tï¿½Åƒfï¿½Bï¿½ï¿½ï¿½Nï¿½gï¿½ï¿½ï¿½ï¿½ï¿½Jï¿½ï¿½
       (define-key map (kbd "C-t")
         (lambda ()
           (interactive)
@@ -60,7 +60,7 @@
            (lambda (file)
              (counsel-find-file (file-name-directory file))))))
 
-      ;; M-1‚Å1”Ô–Ú‚Ìwindow‚ÅŠJ‚­
+      ;; M-1ï¿½ï¿½1ï¿½Ô–Ú‚ï¿½windowï¿½ÅŠJï¿½ï¿½
       (define-key map (kbd "M-1")
         (lambda ()
           (interactive)
@@ -68,7 +68,7 @@
            (lambda (file)
              (my/file-open-in-nth-window file 0)))))
 
-      ;; M-2‚Å2”Ô–Ú‚Ìwindow‚ÅŠJ‚­
+      ;; M-2ï¿½ï¿½2ï¿½Ô–Ú‚ï¿½windowï¿½ÅŠJï¿½ï¿½
       (define-key map (kbd "M-2")
         (lambda ()
           (interactive)
@@ -76,7 +76,7 @@
            (lambda (file)
              (my/file-open-in-nth-window file 1)))))
 
-      ;; M-3‚Å3”Ô–Ú‚Ìwindow‚ÅŠJ‚­
+      ;; M-3ï¿½ï¿½3ï¿½Ô–Ú‚ï¿½windowï¿½ÅŠJï¿½ï¿½
       (define-key map (kbd "M-3")
         (lambda ()
           (interactive)
@@ -118,6 +118,7 @@
             ("<return>" . ivy-alt-done)
             ("C-m" . ivy-alt-done)
             ("C-z" . ivy-call)
+            ("C-r" . my/tabspaces-switch-or-recentf)
             ("M-r" . ivy-dispatching-done)
             ))
     )

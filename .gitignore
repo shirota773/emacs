@@ -6,6 +6,9 @@ inits/*.local.*
 elpa/
 auto-save-list/
 
+# Byte-compiled output
+*.elc
+
 # Manually installed tools (currently unused)
 site-lisp/
 auto-install/
