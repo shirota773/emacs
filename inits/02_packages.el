@@ -265,7 +265,9 @@
 
   )
 
+;; company は corfu に置き換え済み。`:disabled t` を外せば再有効化可能。
 (leaf company
+  :disabled t
   :ensure t
   :custom
   (company-idle-delay . 0.1)
@@ -273,9 +275,9 @@
   (company-selection-wrap-around . t)
   (company-show-numbers . t)
 
-  :config
-  (global-company-mode t)
+  :hook (after-init-hook . global-company-mode)
 
+  :config
   (set-face-attribute 'company-tooltip-selection nil
                       :foreground "#a1ffcd" :background "#007771")
   (set-face-attribute 'company-tooltip-common-selection nil
@@ -299,6 +301,40 @@
    ("<down>" . nil)
    ("C-j" . my/company-insert-common))
   )
+
+;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
+;; `completion-at-point-functions' (capf) のみをソースにする。
+(leaf corfu
+  :ensure t
+  :hook (after-init-hook . global-corfu-mode)
+  :custom
+  (corfu-auto . t)              ; 自動発火 (company-idle-delay 相当)
+  (corfu-auto-delay . 0.1)
+  (corfu-auto-prefix . 2)       ; 最低 2 文字 (company-minimum-prefix-length 相当)
+  (corfu-cycle . t)             ; 候補リストを wrap around
+  (corfu-preselect . 'prompt)   ; 入力を優先、勝手に選択状態にしない
+  :bind
+  (:corfu-map
+   ("<return>" . nil)           ; RET で確定しない (company の挙動を踏襲)
+   ("RET" . nil)
+   ("<tab>" . nil)
+   ("TAB" . nil)
+   ("M-n" . corfu-next)
+   ("M-p" . corfu-previous)
+   ("C-j" . corfu-complete)))   ; C-j で共通部分を挿入
+
+;; cape: capf を拡張するヘルパー集。
+;; `cape-file' で文字列内のファイルパス補完 (company-files 相当) を復活させる。
+;; `:init' に置くのは、cape.el が遅延ロードされる前に capf リストへ
+;; 関数シンボルを登録しておく必要があるため (:config は load 後実行)。
+(leaf cape
+  :ensure t
+  :init
+  ;; add-hook は default value を変更する (add-to-list は current-buffer の
+  ;; buffer-local 値を触ることがあるため避ける)。abnormal hook である
+  ;; `completion-at-point-functions' に対する正規の登録方法。
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-file))
 
 (leaf recentf-ext
   :ensure t
