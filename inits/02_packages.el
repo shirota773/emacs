@@ -15,13 +15,10 @@
   ;; :require t
   :custom
   (view-read-only . t)
-  (viewer-modeline-color-view . "darkblue")
-  (viewer-modeline-color-default . "black")
-  (viewer-modeline-color-unwritable . "red")
   (view-mode-by-default-regexp . "\\.log$\\|\\.data$")
 
   :config
-  (viewer-change-modeline-color-setup)
+  ;; モードライン/背景/カーソル/hl-line の色付けは 03_view-visual.el に一本化
   (viewer-stay-in-setup)
   :bind ((:view-mode-map
           ("h" . backward-char)
