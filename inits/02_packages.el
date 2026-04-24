@@ -323,6 +323,8 @@
   (corfu-preselect . 'prompt)   ; 入力を優先
   (corfu-popupinfo-delay . 0.5) ; ドキュメント表示の遅延
   (corfu-indexed-start . 1)     ; インデックス表示を 1 から開始
+  (corfu-quit-at-boundary . nil) ; 境界で補完を終了しない (orderless用)
+  (corfu-separator . ?\s)          ; 区切り文字をスペースに設定
   :preface
   (defun my-corfu-indexed-insert (n)
     "インデックス N の候補を選択して挿入する。"
@@ -342,6 +344,7 @@
     (add-to-list 'savehist-additional-variables 'corfu-history))
   :bind
   (:corfu-map
+   ("SPC" . corfu-insert-separator) ; スペースで区切り文字を入力
    ("<return>" . nil)           ; RET で確定しない
    ("RET" . nil)
    ("<tab>" . nil)
