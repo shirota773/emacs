@@ -7,7 +7,6 @@
 ;;   対象になる条件: `buffer-read-only' が t のバッファ
 ;;   （`read-only-mode' でも `view-mode' でも同じ）
 ;;
-;;   モードラインは viewer.el の色切替に委譲 (フレーム全体で色が切り替わる)
 ;;   背景 / hl-line は face-remap で buffer-local に適用
 ;;   カーソル色は IME 切替と競合するため、形状 (`cursor-type') で区別する
 ;;
@@ -32,19 +31,6 @@
 (defcustom my/view-visual-enable-hl-line t
   "非 nil なら read-only バッファで `hl-line-mode' を自動で有効化する。"
   :type 'boolean :group 'my/view-visual)
-
-;; ---- モードライン色 (viewer.el に委譲) ----
-(defcustom my/view-visual-mode-line-view "#6272a4"
-  "view-mode バッファ時のモードライン背景色。"
-  :type 'color :group 'my/view-visual)
-
-(defcustom my/view-visual-mode-line-default "#483d8b"
-  "通常バッファ (書込可能) 時のモードライン背景色。"
-  :type 'color :group 'my/view-visual)
-
-(defcustom my/view-visual-mode-line-unwritable "#a52a2a"
-  "書込不可だが view-mode でないバッファのモードライン色。"
-  :type 'color :group 'my/view-visual)
 
 ;; ---- カーソル形状 (色は IME フックと競合するので触らない) ----
 (defcustom my/view-visual-cursor-type-default t
@@ -121,16 +107,6 @@
   "いま表示されている全ウィンドウのバッファを同期する。"
   (dolist (win (window-list nil 'no-mini))
     (my/view-visual--sync-buffer (window-buffer win))))
-
-;; ------------------------------------------------------------------
-;; モードライン色 — viewer.el に委譲 (フレーム全体の mode-line face を切替)
-;; ------------------------------------------------------------------
-
-(with-eval-after-load 'viewer
-  (setq viewer-modeline-color-view my/view-visual-mode-line-view)
-  (setq viewer-modeline-color-default my/view-visual-mode-line-default)
-  (setq viewer-modeline-color-unwritable my/view-visual-mode-line-unwritable)
-  (viewer-change-modeline-color-setup))
 
 ;; ------------------------------------------------------------------
 ;; フック接続
