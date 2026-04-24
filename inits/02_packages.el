@@ -304,24 +304,70 @@
 
 ;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
 ;; `completion-at-point-functions' (capf) のみをソースにする。
+;; 柔軟な絞り込み (スペース区切りで順不同な入力が可能に)
+(leaf orderless
+  :ensure t
+  :custom
+  (completion-styles . '(orderless basic))
+  (completion-category-overrides . '((file (styles basic partial-completion)))))
+
+;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
 (leaf corfu
   :ensure t
   :hook (after-init-hook . global-corfu-mode)
   :custom
-  (corfu-auto . t)              ; 自動発火 (company-idle-delay 相当)
+  (corfu-auto . t)              ; 自動発火
   (corfu-auto-delay . 0.1)
-  (corfu-auto-prefix . 2)       ; 最低 2 文字 (company-minimum-prefix-length 相当)
+  (corfu-auto-prefix . 2)
   (corfu-cycle . t)             ; 候補リストを wrap around
-  (corfu-preselect . 'prompt)   ; 入力を優先、勝手に選択状態にしない
+  (corfu-preselect . 'prompt)   ; 入力を優先
+  (corfu-popupinfo-delay . 0.5) ; ドキュメント表示の遅延
+  (corfu-indexed-start . 1)     ; インデックス表示を 1 から開始
+  :preface
+  (defun my-corfu-indexed-insert (n)
+    "インデックス N の候補を選択して挿入する。"
+    (interactive)
+    (let ((index (+ corfu--scroll n)))
+      (when (and (>= index 0) (< index corfu--total))
+        (setq corfu--index index)
+        (corfu-insert))))
+  :config
+  (require 'corfu-indexed)
+  (require 'corfu-popupinfo)
+  (require 'corfu-history)
+  (corfu-indexed-mode 1)        ; インデックス数字を表示
+  (corfu-popupinfo-mode 1)      ; ドキュメントのポップアップを表示
+  (corfu-history-mode 1)        ; 履歴を有効化
+  (with-eval-after-load 'savehist
+    (add-to-list 'savehist-additional-variables 'corfu-history))
   :bind
   (:corfu-map
-   ("<return>" . nil)           ; RET で確定しない (company の挙動を踏襲)
+   ("<return>" . nil)           ; RET で確定しない
    ("RET" . nil)
    ("<tab>" . nil)
    ("TAB" . nil)
    ("M-n" . corfu-next)
    ("M-p" . corfu-previous)
-   ("C-j" . corfu-complete)))   ; C-j で共通部分を挿入
+   ("C-j" . corfu-complete)     ; C-j で共通部分を挿入
+   ;; M-1 〜 M-9 でインデックスを選択して確定
+   ("M-1" . (lambda () (interactive) (my-corfu-indexed-insert 0)))
+   ("M-2" . (lambda () (interactive) (my-corfu-indexed-insert 1)))
+   ("M-3" . (lambda () (interactive) (my-corfu-indexed-insert 2)))
+   ("M-4" . (lambda () (interactive) (my-corfu-indexed-insert 3)))
+   ("M-5" . (lambda () (interactive) (my-corfu-indexed-insert 4)))
+   ("M-6" . (lambda () (interactive) (my-corfu-indexed-insert 5)))
+   ("M-7" . (lambda () (interactive) (my-corfu-indexed-insert 6)))
+   ("M-8" . (lambda () (interactive) (my-corfu-indexed-insert 7)))
+   ("M-9" . (lambda () (interactive) (my-corfu-indexed-insert 8)))))
+
+;; アイコン表示
+(leaf kind-icon
+  :ensure t
+  :after corfu
+  :custom
+  (kind-icon-default-face . 'corfu-default) ; corfuの背景に合わせる
+  :config
+  (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
 
 ;; cape: capf を拡張するヘルパー集。
 ;; `cape-file' で文字列内のファイルパス補完 (company-files 相当) を復活させる。
