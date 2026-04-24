@@ -69,46 +69,70 @@
     (when my/view-visual-enable-hl-line
       (setq my/view-visual--hl-line-was-on
             (bound-and-true-p hl-line-mode))
-      (hl-line-mode 1))))
+      (hl-line-mode 1))
+    (force-mode-line-update t)))
 
 (defun my/view-visual--remove ()
   "read-only スタイルを解除する。"
-  (dolist (cookie my/view-visual--cookies)
-    (face-remap-remove-relative cookie))
-  (setq my/view-visual--cookies nil)
-  (when (and my/view-visual-enable-hl-line
-             (not my/view-visual--hl-line-was-on)
-             (bound-and-true-p hl-line-mode))
-    (hl-line-mode -1)))
+  (when my/view-visual--cookies
+    (dolist (cookie my/view-visual--cookies)
+      (face-remap-remove-relative cookie))
+    (setq my/view-visual--cookies nil)
+    (when (and my/view-visual-enable-hl-line
+               (not my/view-visual--hl-line-was-on)
+               (bound-and-true-p hl-line-mode))
+      (hl-line-mode -1))
+    (force-mode-line-update t)))
+
+(defun my/view-visual--sync-buffer (buf)
+  "BUF の read-only 状態に合わせて適用/解除する。"
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (if buffer-read-only
+          (my/view-visual--apply)
+        (my/view-visual--remove)))))
 
 (defun my/view-visual--sync ()
-  "バッファの read-only 状態に合わせて適用/解除する。"
-  (if buffer-read-only
-      (my/view-visual--apply)
-    (my/view-visual--remove)))
+  "現在のバッファを同期 (read-only-mode/view-mode フック用)。"
+  (my/view-visual--sync-buffer (current-buffer)))
 
-;; カーソル色はフレーム単位なので、バッファ切替/コマンド後に追従させる
+;; 表示中の全バッファを同期 (ウィンドウ切替対応)
+(defun my/view-visual--sync-visible (&rest _)
+  "いま表示されている全ウィンドウのバッファを同期する。"
+  (dolist (win (window-list nil 'no-mini))
+    (my/view-visual--sync-buffer (window-buffer win))))
+
+;; カーソル色は選択ウィンドウのバッファに合わせる (frame 属性なので動的に追従)
 (defun my/view-visual--update-cursor (&rest _)
-  (let ((target (if buffer-read-only
-                    my/view-visual-cursor
-                  my/view-visual-cursor-default)))
+  (let* ((buf (window-buffer (selected-window)))
+         (ro (and (buffer-live-p buf)
+                  (buffer-local-value 'buffer-read-only buf)))
+         (target (if ro
+                     my/view-visual-cursor
+                   my/view-visual-cursor-default)))
     (unless (equal (frame-parameter nil 'cursor-color) target)
       (set-cursor-color target))))
+
+(defun my/view-visual--on-window-change (&rest _)
+  "ウィンドウ選択/バッファ変更時に、表示バッファとカーソルを同期する。"
+  (my/view-visual--sync-visible)
+  (my/view-visual--update-cursor))
 
 ;; ------------------------------------------------------------------
 ;; フック接続
 ;; ------------------------------------------------------------------
 
+;; モード切替時
 (add-hook 'read-only-mode-hook #'my/view-visual--sync)
 (add-hook 'view-mode-hook #'my/view-visual--sync)
-(add-hook 'buffer-list-update-hook #'my/view-visual--update-cursor)
-(add-hook 'window-buffer-change-functions #'my/view-visual--update-cursor)
+
+;; ウィンドウ/バッファ切替時 (選択ウィンドウと表示バッファを確実に反映)
+(add-hook 'window-selection-change-functions #'my/view-visual--on-window-change)
+(add-hook 'window-buffer-change-functions #'my/view-visual--on-window-change)
 
 ;; 既に read-only 状態で開かれているバッファにも反映
 (dolist (buf (buffer-list))
-  (with-current-buffer buf
-    (when buffer-read-only
-      (my/view-visual--sync))))
+  (my/view-visual--sync-buffer buf))
 
 (provide '03_view-visual)
 ;;; 03_view-visual.el ends here
