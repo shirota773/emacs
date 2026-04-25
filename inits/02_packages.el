@@ -309,13 +309,18 @@
   :ensure t
   :custom
   (completion-styles . '(orderless basic))
-  (completion-category-overrides . '((file (styles basic partial-completion)))))
+  (completion-category-overrides . '((file (styles basic partial-completion))))
+  (orderless-matching-styles . '(orderless-prefixes
+                                 orderless-initialism
+                                 orderless-regexp))
+  (orderless-smart-case . t))
 
 ;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
 (leaf corfu
   :ensure t
   :hook (after-init-hook . global-corfu-mode)
   :custom
+  (completion-ignore-case . t)
   (corfu-auto . t)              ; 自動発火
   (corfu-auto-delay . 0.1)
   (corfu-auto-prefix . 2)
@@ -333,12 +338,6 @@
       (when (and (>= index 0) (< index corfu--total))
         (setq corfu--index index)
         (corfu-insert))))
-  (defun my-corfu-insert-or-first ()
-    "選択中の候補を挿入するか、候補が1つの場合はそれを選択して挿入する。"
-    (interactive)
-    (if (and (not corfu--index) (= corfu--total 1))
-        (setq corfu--index 0))
-    (corfu-insert))
   :config
   (require 'corfu-indexed)
   (require 'corfu-popupinfo)
@@ -355,15 +354,10 @@
    ("SPC" . corfu-insert-separator) ; スペースで区切り文字を入力
    ("<return>" . nil)           ; RET で確定しない
    ("RET" . nil)
-   ("<tab>" . nil)
-   ("TAB" . nil)
-   ("M-n" . corfu-next)
-   ("M-p" . corfu-previous)
    ("M-j" . corfu-next)
    ("M-k" . corfu-previous)
-   ("M-m" . corfu-complete)
-   ("M-l" . corfu-expand)
-   ("C-j" . my-corfu-insert-or-first) ; 候補が1つなら自動で選んで挿入
+   ("M-L" . corfu-complete)
+   ("<tab>" . corfu-expand)
    ;; M-1 〜 M-9 でインデックスを選択して確定
    ("M-1" . (lambda () (interactive) (my-corfu-indexed-insert 0)))
    ("M-2" . (lambda () (interactive) (my-corfu-indexed-insert 1)))
@@ -374,6 +368,7 @@
    ("M-7" . (lambda () (interactive) (my-corfu-indexed-insert 6)))
    ("M-8" . (lambda () (interactive) (my-corfu-indexed-insert 7)))
    ("M-9" . (lambda () (interactive) (my-corfu-indexed-insert 8)))))
+
 
 ;; アイコン表示
 (leaf kind-icon
