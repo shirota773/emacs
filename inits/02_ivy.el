@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (leaf ivy
     :ensure t
     :defvar (ivy-initial-inputs-alist)
@@ -9,9 +10,30 @@
       :config
       (ivy-rich-mode 1)
       )
+    (defun my/ivy-find-file-in-candidate-directory ()
+      "Open `counsel-find-file' in the directory of the current Ivy candidate."
+      (interactive)
+      (let* ((x (ivy-state-current ivy-last))
+             (path (cond ((consp x) (cdr x)) ; virtual buffer (recentf)
+                         ((and (stringp x) (get-buffer x)) (buffer-file-name (get-buffer x)))
+                         ((stringp x) x) ; likely a file path
+                         (t nil))))
+        (if (and path (stringp path))
+            (let ((dir (file-name-directory path)))
+              (if (and dir (file-directory-p dir))
+                  (ivy-exit-with-action
+                   (lambda (_) (counsel-find-file dir)))
+                (message "Directory does not exist: %s" dir)))
+          (message "No file path for current candidate"))))
+
     (ivy-add-actions
      'counsel-buffer-or-recentf
-     '(("j" find-file-other-window "other window")))
+     '(("j" find-file-other-window "other window")
+       ("d" (lambda (x) (counsel-find-file (file-name-directory (if (consp x) (cdr x) x)))) "find file in directory")))
+
+    (ivy-add-actions
+     'counsel-recentf
+     '(("d" (lambda (x) (counsel-find-file (file-name-directory x))) "find file in directory")))
 
     (defun sort-windows-by-top-left ()
       "Sort windows by their top-left corner position, closest to (0, 0) first."
@@ -47,53 +69,6 @@
           (activate-sorted-window-by-index nth)
           (find-file file)))))
 
-  ;; counsel-recentf�̃L�[�}�b�v�ݒ�
-  (defun my/counsel-recentf-setup ()
-    (let ((map (make-sparse-keymap)))
-      (set-keymap-parent map ivy-minibuffer-map)
-
-      ;; C-t�Ńf�B���N�g�����J��
-      (define-key map (kbd "C-t")
-        (lambda ()
-          (interactive)
-          (ivy-exit-with-action
-           (lambda (file)
-             (counsel-find-file (file-name-directory file))))))
-
-      ;; M-1��1�Ԗڂ�window�ŊJ��
-      (define-key map (kbd "M-1")
-        (lambda ()
-          (interactive)
-          (ivy-exit-with-action
-           (lambda (file)
-             (my/file-open-in-nth-window file 0)))))
-
-      ;; M-2��2�Ԗڂ�window�ŊJ��
-      (define-key map (kbd "M-2")
-        (lambda ()
-          (interactive)
-          (ivy-exit-with-action
-           (lambda (file)
-             (my/file-open-in-nth-window file 1)))))
-
-      ;; M-3��3�Ԗڂ�window�ŊJ��
-      (define-key map (kbd "M-3")
-        (lambda ()
-          (interactive)
-          (ivy-exit-with-action
-           (lambda (file)
-             (my/file-open-in-nth-window file 2)))))
-      ))
-
-
-    (defun my/counsel-recentf-dired ()
-      "Select a file from `recentf' and open find-file in tis directory"
-      (interactive)
-      (let* ((file (counsel-recentf))
-             (dir (and file (file-name-directory file))))
-        (when dir
-          (counsel-find-file dir))))
-    (add-hook 'recentf-mode-hook #'my/counsel-recentf-setup)
 
     :custom ((ivy-read-action-function . #'ivy-hydra-read-action)
              (ivy-use-virtual-buffers . t)
@@ -112,13 +87,13 @@
 
     :bind (("M-x" . counsel-M-x)
            ("M-y" . counsel-yank-pop)
-           ;; ("C-;" . my/counsel-buffer-or-recentf)
            ("C-;" . counsel-buffer-or-recentf)
            (:ivy-minibuffer-map
             ("<return>" . ivy-alt-done)
             ("C-m" . ivy-alt-done)
             ("C-z" . ivy-call)
             ("C-r" . my/tabspaces-switch-or-recentf)
+            ("C-t" . my/ivy-find-file-in-candidate-directory)
             ("M-r" . ivy-dispatching-done)
             ))
     )
@@ -130,7 +105,3 @@
    (isearch-mode-map
     ("C-t" . swiper-from-isearch)))
   )
-
-(defun my/ivy-cacito-with-arg (x)
-  (message "Selected item: %s" x))
-;; (define-key ivy-minibuffer-map (kbd "C-c c") 'my/ivy-cacito-with-arg)
