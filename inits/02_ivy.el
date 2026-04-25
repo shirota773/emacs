@@ -10,21 +10,28 @@
       :config
       (ivy-rich-mode 1)
       )
-    (defun my/ivy-find-file-in-candidate-directory ()
-      "Open `counsel-find-file' in the directory of the current Ivy candidate."
+    (defun my/ivy-select-directory-from-candidates ()
+      "Extract unique directories from all current Ivy candidates and let the user select one."
       (interactive)
-      (let* ((x (ivy-state-current ivy-last))
-             (path (cond ((consp x) (cdr x)) ; virtual buffer (recentf)
-                         ((and (stringp x) (get-buffer x)) (buffer-file-name (get-buffer x)))
-                         ((stringp x) x) ; likely a file path
-                         (t nil))))
-        (if (and path (stringp path))
-            (let ((dir (file-name-directory path)))
-              (if (and dir (file-directory-p dir))
-                  (ivy-exit-with-action
-                   (lambda (_) (counsel-find-file dir)))
-                (message "Directory does not exist: %s" dir)))
-          (message "No file path for current candidate"))))
+      (let* ((candidates (or ivy--old-cands ivy--all-candidates))
+             (dirs (delete-dups
+                    (seq-filter #'identity
+                                (mapcar (lambda (x)
+                                          (let ((path (cond ((consp x) (cdr x)) ; virtual buffer (recentf)
+                                                            ((and (stringp x) (get-buffer x)) (buffer-file-name (get-buffer x)))
+                                                            ((stringp x) x) ; likely a file path
+                                                            (t nil))))
+                                            (and path (stringp path) (file-name-directory path))))
+                                        candidates))))
+             (len (length dirs)))
+        (if (= len 0)
+            (message "No directories found in candidates")
+          (ivy-quit-and-run
+           (if (= len 1)
+               (counsel-find-file (car dirs))
+             (ivy-read "Select directory: " dirs
+                       :action (lambda (dir)
+                                 (counsel-find-file dir))))))))
 
     (ivy-add-actions
      'counsel-buffer-or-recentf
@@ -93,7 +100,7 @@
             ("C-m" . ivy-alt-done)
             ("C-z" . ivy-call)
             ("C-r" . my/tabspaces-switch-or-recentf)
-            ("C-t" . my/ivy-find-file-in-candidate-directory)
+            ("C-t" . my/ivy-select-directory-from-candidates)
             ("M-r" . ivy-dispatching-done)
             ))
     )
