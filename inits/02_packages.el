@@ -333,6 +333,12 @@
       (when (and (>= index 0) (< index corfu--total))
         (setq corfu--index index)
         (corfu-insert))))
+  (defun my-corfu-insert-or-first ()
+    "選択中の候補を挿入するか、候補が1つの場合はそれを選択して挿入する。"
+    (interactive)
+    (if (and (not corfu--index) (= corfu--total 1))
+        (setq corfu--index 0))
+    (corfu-insert))
   :config
   (require 'corfu-indexed)
   (require 'corfu-popupinfo)
@@ -357,7 +363,7 @@
    ("M-k" . corfu-previous)
    ("M-m" . corfu-complete)
    ("M-l" . corfu-expand)
-   ("C-j" . corfu-insert)       ; C-j で選択中の候補をすべて挿入
+   ("C-j" . my-corfu-insert-or-first) ; 候補が1つなら自動で選んで挿入
    ;; M-1 〜 M-9 でインデックスを選択して確定
    ("M-1" . (lambda () (interactive) (my-corfu-indexed-insert 0)))
    ("M-2" . (lambda () (interactive) (my-corfu-indexed-insert 1)))
