@@ -130,6 +130,14 @@
 (fset 'yes-or-no-p 'y-or-n-p)           ;; "yes or no" の選択を "y or n" にする
 
 (set-scroll-bar-mode 'nil)
+(setq-default case-fold-search t)
+(setq-default completion-ignore-case t)
+(setq-default read-file-name-completion-ignore-case t)
+(setq-default read-buffer-completion-ignore-case t)
+(setq-default dabbrev-case-fold-search t)
+(setq-default dabbrev-case-replace nil)
+(setq-default dabbrev-case-distinction nil)
+(setq completion-ignore-case nil)
 (setq read-file-name-completion-ignore-case t)
 
 ;; テンプレートの自動挿入

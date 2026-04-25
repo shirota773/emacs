@@ -206,6 +206,7 @@
   :hook (((prog-mode-hook python-mode-hook). rainbow-delimiters-mode)
          (emacs-startup-hook . rainbow-delimiters-using-stronger-colors))
   :config
+  (require 'color)
   (rainbow-delimiters-mode t)
   (defun rainbow-delimiters-using-stronger-colors ()
     (interactive)
@@ -305,22 +306,43 @@
 ;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
 ;; `completion-at-point-functions' (capf) のみをソースにする。
 ;; 柔軟な絞り込み (スペース区切りで順不同な入力が可能に)
+;; 補完エンジンの絞り込みロジック (Orderless)
+;; スペース区切りで複数の単語にマッチするように設定
 (leaf orderless
   :ensure t
+  :init
+  (setq-default completion-styles '(orderless basic)
+                completion-category-defaults nil
+                completion-category-overrides '((file (styles basic partial-completion))))
+  :config
+  ;; スペースを「AND 検索の区切り」として確実に認識させる設定
+  (setq orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq orderless-smart-case t))
+
+(leaf vertico
+  :ensure t
+  :hook (after-init-hook . vertico-mode)
   :custom
-  (completion-styles . '(orderless basic))
-  (completion-category-overrides . '((file (styles basic partial-completion))))
-  (orderless-matching-styles . '(orderless-prefixes
-                                 orderless-initialism
-                                 orderless-regexp))
-  (orderless-smart-case . t))
+  (vertico-count . 20)
+  (vertico-cycle . t))
+
+(leaf marginalia
+  :ensure t
+  :hook (after-init-hook . marginalia-mode))
+
+(leaf savehist
+  :tag "builtin"
+  :custom
+  (savehist-file . "~/.cache/emacs/savehist")
+  :config
+  (savehist-mode 1))
 
 ;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
 (leaf corfu
   :ensure t
   :hook (after-init-hook . global-corfu-mode)
   :custom
-  (completion-ignore-case . t)
+  (completion-ignore-case . nil)
   (corfu-auto . t)              ; 自動発火
   (corfu-auto-delay . 0.1)
   (corfu-auto-prefix . 2)
@@ -339,6 +361,7 @@
         (setq corfu--index index)
         (corfu-insert))))
   :config
+  (setq-default completion-ignore-case nil)
   (require 'corfu-indexed)
   (require 'corfu-popupinfo)
   (require 'corfu-history)
@@ -368,6 +391,29 @@
    ("M-7" . #'(lambda () (interactive) (my-corfu-indexed-insert 6)))
    ("M-8" . #'(lambda () (interactive) (my-corfu-indexed-insert 7)))
    ("M-9" . #'(lambda () (interactive) (my-corfu-indexed-insert 8)))))
+
+(leaf consult
+  :ensure t
+  :bind (("C-s" . consult-line)
+         ("M-y" . consult-yank-pop)
+         ("C-;" . consult-buffer)))
+
+(leaf embark
+  :ensure t
+  :bind (("C-." . embark-act)
+         ("M-." . embark-dwim)
+         ("C-h B" . embark-bindings))
+  :config
+  (add-to-list 'display-buffer-alist
+               '("\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 (display-buffer-in-side-window)
+                 (side . right)
+                 (window-width . 0.3))))
+
+(leaf embark-consult
+  :ensure t
+  :after (embark consult)
+  :hook (embark-collect-mode-hook . embark-consult-preview-minor-mode))
 
 
 ;; アイコン表示

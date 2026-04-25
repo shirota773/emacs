@@ -1,4 +1,4 @@
-(leaf tabspaces
+ (leaf tabspaces
   :ensure t
   :hook
   (after-init . tabspaces-mode)
@@ -15,8 +15,6 @@
   (("C-f" . hydra-buffer-primary/body)
    ("C-j" . tabspaces-switch-to-buffer)
    )
-  :bind*
-  ("C-r" . my/tabspaces-switch-or-recentf)
 
   :hydra (hydra-buffer-primary
           (:color blue :hint nil :exit nil)
@@ -105,27 +103,6 @@
       (tabspaces-switch-to-buffer buffer norecord force-same-window))
     )
 
-(defvar my/c-t-state 'recentf
-  "State of C-t toggle: either 'recentf or 'tabspaces.")
-(defun my/tabspaces-switch-or-recentf ()
-  "Toggle between recentf and tabspaces buffer with C-t."
-  (interactive)
-  (message "Current state: %s" my/c-t-state)
-    (cond
-     ((and (active-minibuffer-window)
-           (eq my/c-t-state 'recentf))
-      (setq my/c-t-state 'tabspaces)
-      (ivy-quit-and-run
-        (my/tabspaces-switch-to-buffer)))
-     ((and (active-minibuffer-window)
-           (eq my/c-t-state 'tabspaces))
-      (setq my/c-t-state 'recentf)
-      (ivy-quit-and-run
-         (counsel-buffer-or-recentf)))
-     (t
-      (setq my/c-t-state 'tabspaces)
-         (my/tabspaces-switch-to-buffer)
-         )))
 )
 
 (leaf consult
