@@ -342,6 +342,8 @@
   (corfu-history-mode 1)        ; 履歴を有効化
   (with-eval-after-load 'savehist
     (add-to-list 'savehist-additional-variables 'corfu-history))
+  (set-face-attribute 'corfu-current nil
+                      :foreground "#a1ffcd" :background "#007771")
   :bind
   (:corfu-map
    ("SPC" . corfu-insert-separator) ; スペースで区切り文字を入力
@@ -351,7 +353,11 @@
    ("TAB" . nil)
    ("M-n" . corfu-next)
    ("M-p" . corfu-previous)
-   ("C-j" . corfu-complete)     ; C-j で共通部分を挿入
+   ("M-j" . corfu-next)
+   ("M-k" . corfu-previous)
+   ("M-m" . corfu-complete)
+   ("M-l" . corfu-expand)
+   ("C-j" . corfu-insert)       ; C-j で選択中の候補をすべて挿入
    ;; M-1 〜 M-9 でインデックスを選択して確定
    ("M-1" . (lambda () (interactive) (my-corfu-indexed-insert 0)))
    ("M-2" . (lambda () (interactive) (my-corfu-indexed-insert 1)))
