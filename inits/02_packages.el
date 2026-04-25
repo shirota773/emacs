@@ -359,15 +359,15 @@
    ("M-L" . corfu-complete)
    ("<tab>" . corfu-expand)
    ;; M-1 〜 M-9 でインデックスを選択して確定
-   ("M-1" . (lambda () (interactive) (my-corfu-indexed-insert 0)))
-   ("M-2" . (lambda () (interactive) (my-corfu-indexed-insert 1)))
-   ("M-3" . (lambda () (interactive) (my-corfu-indexed-insert 2)))
-   ("M-4" . (lambda () (interactive) (my-corfu-indexed-insert 3)))
-   ("M-5" . (lambda () (interactive) (my-corfu-indexed-insert 4)))
-   ("M-6" . (lambda () (interactive) (my-corfu-indexed-insert 5)))
-   ("M-7" . (lambda () (interactive) (my-corfu-indexed-insert 6)))
-   ("M-8" . (lambda () (interactive) (my-corfu-indexed-insert 7)))
-   ("M-9" . (lambda () (interactive) (my-corfu-indexed-insert 8)))))
+   ("M-1" . #'(lambda () (interactive) (my-corfu-indexed-insert 0)))
+   ("M-2" . #'(lambda () (interactive) (my-corfu-indexed-insert 1)))
+   ("M-3" . #'(lambda () (interactive) (my-corfu-indexed-insert 2)))
+   ("M-4" . #'(lambda () (interactive) (my-corfu-indexed-insert 3)))
+   ("M-5" . #'(lambda () (interactive) (my-corfu-indexed-insert 4)))
+   ("M-6" . #'(lambda () (interactive) (my-corfu-indexed-insert 5)))
+   ("M-7" . #'(lambda () (interactive) (my-corfu-indexed-insert 6)))
+   ("M-8" . #'(lambda () (interactive) (my-corfu-indexed-insert 7)))
+   ("M-9" . #'(lambda () (interactive) (my-corfu-indexed-insert 8)))))
 
 
 ;; アイコン表示
@@ -429,7 +429,7 @@ do nothing. And suppress the output from `message' and
   (setq recentf-auto-cleanup 10)
   (setq recentf-auto-save-timer
         (run-with-idle-timer 30 t
-                             '(lambda () (with-suppressed-message (recentf-save-list)))))
+                             #'(lambda () (with-suppressed-message (recentf-save-list)))))
   (recentf-mode 1))
 
 ;; (recentf-load-list)
