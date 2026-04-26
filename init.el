@@ -51,7 +51,7 @@
                   interactive-only
                   make-local))
 (add-to-list 'load-path "~/.emacs.d/auto-install" t)
-(add-to-list 'load-path "~/.emacs.d/my-utils" t)
+(add-to-list 'load-path "~/.emacs.d/inits/my-utils" t)
 
 
 ;; theme

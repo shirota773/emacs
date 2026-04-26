@@ -1,4 +1,4 @@
-(add-to-list 'load-path (expand-file-name "my-utils" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "inits/my-utils" user-emacs-directory))
 (require 'tabspace-util)
 
 (leaf tab-bar
