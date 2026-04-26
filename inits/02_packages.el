@@ -164,19 +164,12 @@
   :ensure t)
 
 
-(leaf undohist
-  :ensure t
-  :config
-  (undohist-initialize)
-  )
-
 (leaf smart-tab
   :ensure t)
 
 ;; モードラインの整理 (blackout)
 (leaf eldoc :blackout t)
 (leaf abbrev :blackout t)
-(leaf undo-tree :ensure t :blackout t)
 (leaf paredit :ensure t :blackout " Pe")
 
 

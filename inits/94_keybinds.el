@@ -36,7 +36,6 @@
  ("C-^"     . enlarge-window)
  ("C-."     . dabbrev-expand)
  ("<f12>"   . shell)
- ("M-/"     . undo-tree-redo)
  ("C-x C-q" . view-mode)
  ("C-x k"   . kill-current-buffer)
  ("M-s o"   . occur-by-moccur)
