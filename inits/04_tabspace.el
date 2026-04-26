@@ -1,3 +1,6 @@
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+(require 'tabspace-util)
+
 (leaf tab-bar
   :custom
   (tab-bar-auto-width-min . '((10) 2))
@@ -62,7 +65,6 @@
           ("wd" my/tabspace-delete-layout)
           ("q" nil "exit"))
   :config
-  (require 'tabspace-util)
   (advice-add 'project-switch-project :around #'my/project-switch-advice)
   (add-hook 'tab-bar-tab-pre-change-functions #'my/winner-save-for-tab)
   (add-hook 'tab-bar-tab-post-change-functions #'my/winner-restore-for-tab))

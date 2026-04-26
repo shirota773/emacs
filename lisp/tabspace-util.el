@@ -45,6 +45,7 @@
 
 (defun my/tabspaces-switch-to-buffer (&optional norecord force-same-window)
   "Prompt for buffer and switch using tabspaces-switch-to-buffer."
+  (interactive)
   (let* ((blst (cl-remove (buffer-name) (mapcar #'buffer-name (tabspaces--buffer-list))))
          (buffer (read-buffer
                   "Switch to local buffer: " nil nil
