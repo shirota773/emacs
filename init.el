@@ -57,9 +57,12 @@
 ;; theme
 (leaf doom-themes
   :ensure t
-  :custom
   :custom-face
   (doom-modeline-bar . '((t (:background "#6272a4"))))
+  (region . '((t (:background "gray25"))))
+  (mode-line . '((t (:background "#483d8b" :foreground "yellow"))))
+  (mode-line-inactive . '((t (:background "gray30" :foreground "gray70"))))
+  (mode-line-buffer-id . '((t (:foreground "yellow"))))
   :config
   (load-theme 'doom-dracula t)
   (doom-themes-org-config)
@@ -85,13 +88,6 @@
           (lambda() (set-cursor-color "DarkOrange")))
 (add-hook 'input-method-inactivate-hook
           (lambda() (set-cursor-color "cyan")))
-
-(set-face-background 'region "gray25")
-(set-face-background 'mode-line "#483d8b")
-(set-face-foreground 'mode-line "yellow")
-(set-face-foreground 'mode-line-inactive "gray70")
-(set-face-background 'mode-line-inactive "gray30")
-(set-face-foreground 'mode-line-buffer-id "yellow")
 
 ;; フォントサイズの変更
 ;; (add-to-list default-frame-alist '(font . "Ricty diminished"))

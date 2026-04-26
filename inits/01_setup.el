@@ -28,27 +28,17 @@
   ;; スペースは全角のみを可視化
   (whitespace-space-regexp . "\\(\u3000+\\)")
   (whitespace-trailing-regexp . "\\([\t\s　]+$\\)")
-  (whitespace-display-mappings . '(;; (space-mark ?\u3000 [?□]
-                                   (tab-mark ?\t [?\u00bb?\t] [?\\ ?\t])
-                                   ))
+  (whitespace-display-mappings . '((tab-mark ?\t [?\u00bb?\t] [?\\ ?\t])))
   ;; 保存前に自動でクリーンアップ
   (whitespace-action . '(auto-cleanup))
 
   :init
   (global-whitespace-mode 1)
 
-  :config
-  (set-face-attribute 'whitespace-trailing nil
-                      :background nil
-                      :foreground "white"
-                      :underline t)
-  (set-face-attribute 'whitespace-tab nil
-                      :foreground "white"
-                      :underline t)
-  (set-face-attribute 'whitespace-space nil
-                      :foreground "white"
-                      :underline t
-                      :weight 'bold)
+  :custom-face
+  (whitespace-trailing . '((t (:background nil :foreground "white" :underline t))))
+  (whitespace-tab      . '((t (:foreground "white" :underline t))))
+  (whitespace-space    . '((t (:foreground "white" :underline t :weight bold))))
   )
 
 ;;bookmark C-x r mでブックマーク、C-x r l でブックマークを開く
@@ -62,14 +52,12 @@
   (add-hook 'bookmark-after-jump-hook 'bookmark-arrange-latest-top))
 
 (if (version<= "26.0.50" emacs-version)
-    (progn
+    (leaf display-line-numbers
+      :init
       (global-display-line-numbers-mode)
-      ;; テーマはdeeper-blueを使用している。これに合わせた色を選んだつもり
-      (set-face-attribute 'line-number nil
-                          :foreground "DarkOliveGreen"
-                          :background "#202020")
-      (set-face-attribute 'line-number-current-line nil
-                          :foreground "gold")))
+      :custom-face
+      (line-number . '((t (:foreground "DarkOliveGreen" :background "#202020"))))
+      (line-number-current-line . '((t (:foreground "gold"))))))
 
 ;;; 一行が72字以上になった時には自動改行 する
 (leaf *setup

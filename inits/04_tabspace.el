@@ -1,4 +1,17 @@
- (leaf tabspaces
+ (leaf tab-bar
+  :custom
+  (tab-bar-auto-width-min . '((10) 2))
+  (tab-bar-auto-width-max . '((100) 10))
+  (tab-bar-auto-width . t)
+  (tab-bar-show . 1)          ; tab-bar-mode より先に設定
+  :custom-face
+  (tab-bar . '((t (:inherit default))))
+  (tab-bar-tab . '((t (:foreground "yellow" :weight bold :box nil))))
+  (tab-bar-tab-inactive . '((t (:foreground "gray60" :box nil))))
+  :config
+  (tab-bar-mode 1))
+
+(leaf tabspaces
   :ensure t
   :hook
   (after-init . tabspaces-mode)
@@ -50,18 +63,6 @@
           ("wd" my/tabspace-delete-layout)
           ("q" nil "exit"))
   :config
-  (leaf tab-bar
-    :custom
-    (tab-bar-auto-width-min . '((10) 2))
-    (tab-bar-auto-width-max . '((100) 10))
-    (tab-bar-auto-width . t)
-    (tab-bar-show . 1)          ; tab-bar-mode より先に設定
-    :custom-face
-    (tab-bar . '((t (:inherit default))))
-    (tab-bar-tab . '((t (:foreground "yellow" :weight bold :box nil))))
-    (tab-bar-tab-inactive . '((t (:foreground "gray60" :box nil))))
-    )
-  (tab-bar-mode 1)
 
    (advice-add 'project-switch-project :around #'my/project-switch-advice)
 

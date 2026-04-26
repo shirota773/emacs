@@ -99,12 +99,13 @@
    (highlight-indent-guides-auto-even-face-perc . 15)
    ;; (highlight-indent-guides-auto-character-face-perc . 15)
 
+  :custom-face
+  (highlight-indent-guides-odd-face . '((t (:background "#666666"))))
+  (highlight-indent-guides-even-face . '((t (:background "#666666"))))
+  (highlight-indent-guides-top-even-face . '((t (:background "#888866"))))
+  (highlight-indent-guides-top-odd-face . '((t (:background "#888866"))))
   :config
   ;; (highlight-indent-guides-mode t)
-  (set-face-background 'highlight-indent-guides-odd-face "#666666")
-  (set-face-background 'highlight-indent-guides-even-face "#666666")
-  (set-face-background 'highlight-indent-guides-top-even-face "#888866")
-  (set-face-background 'highlight-indent-guides-top-odd-face "#888866")
   (defun my-highlighter (level responsive display)
     (if (> 1 level)
         nil
@@ -283,12 +284,11 @@
 
   :hook (after-init-hook . global-company-mode)
 
-  :config
-  (set-face-attribute 'company-tooltip-selection nil
-                      :foreground "#a1ffcd" :background "#007771")
-  (set-face-attribute 'company-tooltip-common-selection nil
-                      :foreground "white" :background "#007771")
+  :custom-face
+  (company-tooltip-selection . '((t (:foreground "#a1ffcd" :background "#007771"))))
+  (company-tooltip-common-selection . '((t (:foreground "white" :background "#007771"))))
 
+  :config
   (defun my/company-insert-common ()
     "Insert the common part of all candidates."
     (interactive)
@@ -296,16 +296,16 @@
       (company--insert-common)))
 
   :bind
-  (:company-active-map
-   ("<return>" . nil)
-   ("RET" . nil)
-   ("<tab>" . nil)
-   ("TAB" . nil)
-   ("M-n" . company-select-next)
-   ("M-p" . company-select-previous)
-   ("<up>" . nil)
-   ("<down>" . nil)
-   ("C-j" . my/company-insert-common))
+  ((:company-active-map
+    ("<return>" . nil)
+    ("RET" . nil)
+    ("<tab>" . nil)
+    ("TAB" . nil)
+    ("M-n" . company-select-next)
+    ("M-p" . company-select-previous)
+    ("<up>" . nil)
+    ("<down>" . nil)
+    ("C-j" . my/company-insert-common)))
   )
 
 ;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
@@ -373,8 +373,8 @@
   (corfu-history-mode 1)        ; 履歴を有効化
   (with-eval-after-load 'savehist
     (add-to-list 'savehist-additional-variables 'corfu-history))
-  (set-face-attribute 'corfu-current nil
-                      :foreground "#a1ffcd" :background "#007771")
+  :custom-face
+  (corfu-current . '((t (:foreground "#a1ffcd" :background "#007771"))))
   :bind
   (:corfu-map
    ("SPC" . corfu-insert-separator) ; スペースで区切り文字を入力

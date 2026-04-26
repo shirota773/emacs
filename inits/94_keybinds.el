@@ -56,19 +56,16 @@
  ;; ("M-g" . goto-line)
 
  :map ((Buffer-menu-mode-map
-       help-mode-map
-       grep-mode-map)
+       help-mode-map)
        ("j" . next-line)
        ("J" . next-line)
        ("k" . previous-line))
-
- :map help-mode-map
- ("j" . next-line)
- ("k" . previous-line)
- :map grep-mode-map
- ("j" . next-line)
- ("k" . previous-line)
  )
+
+(with-eval-after-load 'grep
+  (bind-keys :map grep-mode-map
+             ("j" . next-line)
+             ("k" . previous-line)))
 
 (when darwin-p
    (bind-key (kbd "C-M-o") 'other-window))
