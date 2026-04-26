@@ -306,6 +306,7 @@
 ;; 柔軟な絞り込み (スペース区切りで順不同な入力が可能に)
 ;; 補完エンジンの絞り込みロジック (Orderless)
 ;; スペース区切りで複数の単語にマッチするように設定
+
 (leaf orderless
   :ensure t
   :init
@@ -316,17 +317,6 @@
   ;; スペースを「AND 検索の区切り」として確実に認識させる設定
   (setq orderless-component-separator #'orderless-escapable-split-on-space)
   (setq orderless-smart-case t))
-
-(leaf vertico
-  :ensure t
-  :hook (after-init-hook . vertico-mode)
-  :custom
-  (vertico-count . 20)
-  (vertico-cycle . t))
-
-(leaf marginalia
-  :ensure t
-  :hook (after-init-hook . marginalia-mode))
 
 (leaf savehist
   :tag "builtin"
@@ -387,29 +377,6 @@
    ("M-7" . #'(lambda () (interactive) (my-corfu-indexed-insert 6)))
    ("M-8" . #'(lambda () (interactive) (my-corfu-indexed-insert 7)))
    ("M-9" . #'(lambda () (interactive) (my-corfu-indexed-insert 8)))))
-
-(leaf consult
-  :ensure t
-  :bind (("C-s" . consult-line)
-         ("M-y" . consult-yank-pop)
-         ("C-;" . consult-buffer)))
-
-(leaf embark
-  :ensure t
-  :bind (("C-." . embark-act)
-         ("M-." . embark-dwim)
-         ("C-h B" . embark-bindings))
-  :config
-  (add-to-list 'display-buffer-alist
-               '("\\*Embark Collect \\(Live\\|Completions\\)\\*"
-                 (display-buffer-in-side-window)
-                 (side . right)
-                 (window-width . 0.3))))
-
-(leaf embark-consult
-  :ensure t
-  :after (embark consult)
-  :hook (embark-collect-mode-hook . embark-consult-preview-minor-mode))
 
 
 ;; アイコン表示
