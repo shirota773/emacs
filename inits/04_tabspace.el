@@ -8,7 +8,6 @@
   (tabspaces-remove-to-default . t)               ; return default-tab when close tab
   (tabspaces-session-auto-restore . t)            ; restoretabspace when rebooted
   (tabspaces-session . t)
-  (tabspaces-session-file . "~/.cache/emacs/.tabsession.el")
   (tabspaces-session-include . '("main" "work" "org")) ; resotre tab(test)
 
   :bind
@@ -126,7 +125,7 @@
 ;; ========================================
 
 (defvar my/tabspace-sessions-dir
-  (expand-file-name "~/.cache/emacs/tabspace-sessions/")
+  (no-littering-expand-var-file-name "tabspace-sessions/")
   "Directory to store per-tab session files.")
 
 (defcustom my/tabspace-session-include-buffers '((regexp . "\\*Ibuffer\\*"))

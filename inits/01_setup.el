@@ -1,3 +1,11 @@
+(leaf no-littering
+  :ensure t
+  :require t
+  :config
+  (with-eval-after-load 'recentf
+    (add-to-list 'recentf-exclude no-littering-var-directory)
+    (add-to-list 'recentf-exclude no-littering-etc-directory)))
+
 (leaf *auto-save-files
   :config
   :defvar
@@ -8,25 +16,10 @@
   (create-lockfiles . nil)
   (backup-inhibited . t)
   (delete-auto-save-files . t) ;; 終了時にオートセーブファイルを消す
-
-
-  (auto-save-list-file . "~/.cache/emacs/auto-save-list")
-  (backup-directory-alist
-   . `((".*" . "~/.cache/emacs/backups")))
-  (auto-save-file-name-transforms
-   . `((".*" "~/.cache/emacs/autosaves/" t)))
-  ;; recentf
-  (recentf-save-file . "~/.cache/emacs/recentf")
-  (savehist-file . "~/.cache/emacs/savehist")
-  (projectile-known-projects-file . "~/.cache/emacs/projectile-bookmarks.eld")
-  (smex-save-file . "~/.cache/emacs/smex-items")
 )
 
 (leaf transient
-  :custom
-  (transient-levels-file  . "~/.cache/emacs/transient/levels.el")
-  (transient-values-file  . "~/.cache/emacs/transient/values.el")
-  (transient-history-file . "~/.cache/emacs/transient/history.el"))
+  :ensure t)
 
 (leaf whitespace
   :leaf-defer nil

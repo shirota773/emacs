@@ -26,3 +26,7 @@ CLAUDE.md
 # Temporary workspace backups
 unused/
 backups/
+
+# no-littering directories
+var/
+etc/
