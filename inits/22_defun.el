@@ -217,10 +217,3 @@
    (list (read-buffer "Switch to buffer: " (other-buffer (current-buffer)))))
   (switch-to-buffer prompt))
 (global-set-key "\C-xb" 'switch-to-buffer-extension)
-
-
-
-
-
-
-
