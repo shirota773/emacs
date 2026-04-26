@@ -8,8 +8,9 @@
 
 (leaf *auto-save-files
   :config
-  :defvar
-  my/backup-dir
+  ;; オートセーブファイルの保存先を var/auto-save/ にまとめる
+  (setq auto-save-file-name-transforms
+        `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
   :custom
   (make-backup-files . nil)
   (auto-save-default . t)
@@ -34,11 +35,11 @@
 
   :init
   (global-whitespace-mode 1)
-
+  (setq show-trailing-whitespace nil)
   :custom-face
-  (whitespace-trailing . '((t (:background nil :foreground "white" :underline t))))
-  (whitespace-tab      . '((t (:foreground "white" :underline t))))
-  (whitespace-space    . '((t (:foreground "white" :underline t :weight bold))))
+  (whitespace-trailing . '((t (:background nil :foreground "gray40" :underline t :inherit nil))))
+  (whitespace-tab      . '((t (:background nil :foreground "gray40" :underline t))))
+  (whitespace-space    . '((t (:background nil :foreground "gray40" :underline nil :inherit nil))))
   )
 
 ;;bookmark C-x r mでブックマーク、C-x r l でブックマークを開く
