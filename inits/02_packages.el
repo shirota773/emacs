@@ -172,6 +172,12 @@
 (leaf smart-tab
   :ensure t)
 
+;; モードラインの整理 (blackout)
+(leaf eldoc :blackout t)
+(leaf abbrev :blackout t)
+(leaf undo-tree :ensure t :blackout t)
+(leaf paredit :ensure t :blackout " Pe")
+
 
 (leaf *esup
     :defun (esup-init-loader)
@@ -217,6 +223,7 @@
 
 (leaf yasnippet
   :ensure t
+  :blackout " Ys"
   ;; :require yasnippet-config
   :load-path "~/.emacs.d/elpa/yasnippet"
   :config
