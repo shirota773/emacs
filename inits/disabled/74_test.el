@@ -94,63 +94,6 @@ Insert:
 
 (leaf nerd-icons)
 
-(leaf puni
-  :ensure t
-  :config
-  ;; (smartrep-define-key global-map "C-c v"
-  :bind (("C-b" . hydra-b-primary/body))
-  :hydra
-  (hydra-b-primary
-   (:color blue :hint nil :exit nil)
-   "
-^puni^
-------------------
-[_c_]: puni-list-around  [_e_]: puni-expand
-"
-   ("c" puni-mark-list-around-point :exit nil)
-   ("e" puni-expand-region :exit nil)
-   ("l" puni-forward-sexp-or-up-list :exit nil)
-   ("f" puni-forward-sexp :exit nil)
-   ("b" puni-backward-sexp-or-up-list :exit nil)
-   ("d" puni-forward-kill-word :exit nil)
-   ("a" puni-beginning-of-sexp :exit nil)
-   ("s" hydra-puni-slurp/body))
-  (hydra-puni-slurp
-   (:color bleu :hint nil)
-   "
-puni-slurp
-[_q_]: exit
-[_f_]: puni-slurp-forward [_b_]: puni-slurp-forward
-[_F_]: puni-barf-forward [_B_]: puni-barf-forward
-"
-   ("f" puni-slurp-forward)
-   ("b" puni-slurp-backward)
-   ("F" puni-barf-forward)
-   ("B" puni-barf-backward)
-   ("q" nil )
-   )
-  )
-
-(setq auto-save-file-name-tranforms
-      `((".*", (expand-file-name "~/.emacs.d/backup/") )))
-
-
-;; (leaf windmove
-;;   :after smartrep
-;;   :custom
-;;   (windmove-mode . nil)
-  ;; :config
-  ;; :smartrep
-  ;; (smartrep-define-key global-map "C-c"
-  ;; ("C-c"
-  ;;   (("<left>" . windmove-left)
-  ;;     ("<right>" . windmove-right)
-  ;;     ("<up>" . windmove-up)
-  ;;     ("<down>" . windmove-down)
-  ;;     ("o" . other-window)
-  ;;     ))
-  ;; )
-
 (leaf org-ql
   :ensure t)
 
@@ -180,16 +123,6 @@ puni-slurp
 (org-link-descriptive . t)
 )
 
-
-;; <2023-11-19 Sun>
-(defun my-silent-function (original-function &rest args)
-  "Wrap ORIGINAL-FUNCTION to prevent it from displaying messages in the minibuffer."
-  (let ((inhibit-message t))
-    (apply original-function args)))
-
-(advice-add 'recentf-cleanup :around #'my-silent-function)
-(advice-add 'auto-save-visited-file-name :around #'my-silent-function)
-(advice-add 'do-auto-save :around #'my-silent-function)
 
 
 ;;;;
@@ -441,17 +374,6 @@ Default level is 1 if the setting is not specified."
 ;;          ("M-s p" . vimish-fold-previous-fold)
 ;;          ("M-s n" . vimish-fold-next-fold))
 ;;   )
-
-(leaf ace-window
-  :custom
-  ;; (ace-window-mode . 1)
-  (aw-keys . '(?j ?k ?l ?i ?o ?h ?y ?u ?p))
-  (aw-char-position . 'left)
-  (aw-scope . 'global)
-  :config
-  :bind
-  ()
-  )
 
 
 ;; neotree

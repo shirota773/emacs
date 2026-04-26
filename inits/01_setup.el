@@ -17,6 +17,17 @@
   (create-lockfiles . nil)
   (backup-inhibited . t)
   (delete-auto-save-files . t) ;; 終了時にオートセーブファイルを消す
+  )
+
+(leaf *no-message-recentf
+  :config
+  (defun my/silent-function (original-function &rest args)
+    "Wrap ORIGINAL-FUNCTION to prevent it from displaying messages in the minibuffer."
+    (let ((inhibit-message t))
+      (apply original-function args)))
+  (advice-add 'recentf-cleanup :around #'my/silent-function)
+  (advice-add 'auto-save-visited-file-name :around #'my/silent-function)
+  (advice-add 'do-auto-save :around #'my/silent-function)
 )
 
 (leaf transient
