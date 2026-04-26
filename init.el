@@ -51,7 +51,7 @@
                   interactive-only
                   make-local))
 (add-to-list 'load-path "~/.emacs.d/auto-install" t)
-(add-to-list 'load-path "~/.emacs.d/elisp" t)
+(add-to-list 'load-path "~/.emacs.d/lisp" t)
 
 
 ;; theme
