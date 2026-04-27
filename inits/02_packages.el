@@ -356,6 +356,14 @@
   (corfu-history-mode 1)        ; 履歴を有効化
   (with-eval-after-load 'savehist
     (add-to-list 'savehist-additional-variables 'corfu-history))
+  ;; 独自入力よりバッファ移動を優先するため、リマップと直接バインドを無効化
+  (with-eval-after-load 'corfu
+    (define-key corfu-map [remap next-line] nil)
+    (define-key corfu-map [remap previous-line] nil)
+    (define-key corfu-map [down] nil)
+    (define-key corfu-map [up] nil)
+    (define-key corfu-map (kbd "<down>") nil)
+    (define-key corfu-map (kbd "<up>") nil))
   :custom-face
   (corfu-current . '((t (:foreground "#a1ffcd" :background "#007771"))))
   :bind
@@ -363,8 +371,14 @@
    ("SPC" . corfu-insert-separator) ; スペースで区切り文字を入力
    ("<return>" . nil)           ; RET で確定しない
    ("RET" . nil)
+   ([down] . nil)               ; 矢印下で候補を選択しない
+   ([up] . nil)                 ; 矢印上で候補を選択しない
+   ("<down>" . nil)
+   ("<up>" . nil)
    ("M-j" . corfu-next)
    ("M-k" . corfu-previous)
+   ("M-n" . corfu-scroll-up)    ; PageDown (次ページ)
+   ("M-p" . corfu-scroll-down)  ; PageUp (前ページ)
    ("M-L" . corfu-complete)
    ("<tab>" . corfu-expand)
    ;; M-1 〜 M-9 でインデックスを選択して確定

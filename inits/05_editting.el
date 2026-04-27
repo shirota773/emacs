@@ -20,6 +20,14 @@
     (interactive)
     (set-mark-command nil)
     (hydra-puni/body))
+
+  (defun my/hydra-puni-quit-and-pass-key ()
+    "Quit puni hydra and pass the pressed key to Emacs."
+    (interactive)
+    (hydra-keyboard-quit)
+    (setq unread-command-events
+          (append (listify-key-sequence (this-command-keys))
+                  unread-command-events)))
   :config
   (puni-global-mode 1)
   :bind (("C-SPC" . my/puni-selection-start)
@@ -48,6 +56,22 @@
    ("d" puni-forward-kill-word)
    ("l" puni-mark-list-around-point)
    ("x" exchange-point-and-mark)
+   
+   ;; Quit and pass keys to Emacs
+   ("M-w" my/hydra-puni-quit-and-pass-key "copy" :exit t)
+   ("C-w" my/hydra-puni-quit-and-pass-key "kill" :exit t)
+   ("DEL" my/hydra-puni-quit-and-pass-key "backspace" :exit t)
+   ("<backspace>" my/hydra-puni-quit-and-pass-key "backspace" :exit t)
+   ("<delete>" my/hydra-puni-quit-and-pass-key "delete" :exit t)
+   ("(" my/hydra-puni-quit-and-pass-key "(" :exit t)
+   (")" my/hydra-puni-quit-and-pass-key ")" :exit t)
+   ("[" my/hydra-puni-quit-and-pass-key "[" :exit t)
+   ("]" my/hydra-puni-quit-and-pass-key "]" :exit t)
+   ("{" my/hydra-puni-quit-and-pass-key "{" :exit t)
+   ("}" my/hydra-puni-quit-and-pass-key "}" :exit t)
+   ("\"" my/hydra-puni-quit-and-pass-key "\"" :exit t)
+   ("'" my/hydra-puni-quit-and-pass-key "'" :exit t)
+
    ("RET" nil "finish" :exit t)
    ("C-g" (progn (deactivate-mark) (setq quit-flag t)) "cancel" :exit t))
 

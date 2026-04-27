@@ -7,11 +7,19 @@
 ;; 1. Global Keybindings
 ;; =============================================================================
 (global-set-key (kbd "C-r") #'my/tabspaces-switch-or-recentf)
-(global-set-key (kbd "C-s") 'consult-line)
+(global-set-key (kbd "C-s") 'swiper)
 (global-set-key (kbd "M-s g") 'consult-grep)
 (global-set-key (kbd "M-s r") 'consult-ripgrep)
 (global-set-key (kbd "M-x") 'execute-extended-command)
 (global-set-key (kbd "M-o") 'embark-act)
+
+;; Swiper (Minimal config)
+(leaf swiper
+  :ensure t
+  :bind (("C-s" . swiper))
+  :custom
+  (ivy-count-format . "%d/%d ")
+  (ivy-height . 15))
 
 ;; =============================================================================
 ;; 2. Vertico & Related Packages
@@ -30,8 +38,12 @@
    ("C-r" . my/tabspaces-switch-or-recentf)
    ("C-t" . my/vertico-select-directory-from-candidates)
    ("RET" . vertico-directory-enter)
+   ("C-j" . vertico-exit-input)
    ("DEL" . vertico-directory-delete-char)
-   ("M-DEL" . vertico-directory-delete-word)))
+   ("<backspace>" . vertico-directory-delete-char)
+   ("M-DEL" . vertico-directory-delete-word)
+   ("M-<backspace>" . vertico-directory-delete-word)
+   ("M-h" . vertico-directory-up)))
 
 (leaf marginalia
   :ensure t
@@ -39,8 +51,7 @@
 
 (leaf consult
   :ensure t
-  :bind (("C-s" . consult-line)
-         ("M-y" . consult-yank-pop)
+  :bind (("M-y" . consult-yank-pop)
          ("C-;" . consult-buffer)))
 
 (leaf embark
