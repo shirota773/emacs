@@ -215,6 +215,11 @@
        (cl-callf color-saturate-name (face-foreground face) 30))))
   )
 
+(leaf rainbow-mode
+  :ensure t
+  :hook (emacs-lisp-mode-hook web-mode-hook css-mode-hook))
+
+
 (leaf yasnippet
   :ensure t
   :blackout " Ys"
