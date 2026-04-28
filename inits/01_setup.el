@@ -48,9 +48,9 @@
   (global-whitespace-mode 1)
   (setq show-trailing-whitespace nil)
   :custom-face
-  (whitespace-trailing . '((t (:background nil :foreground "gray40" :underline t :inherit nil))))
-  (whitespace-tab      . '((t (:background nil :foreground "gray40" :underline t))))
-  (whitespace-space    . '((t (:background nil :foreground "gray40" :underline nil :inherit nil))))
+  (whitespace-trailing . '((t (:background unspecified :foreground "gray40" :underline t :inherit nil))))
+  (whitespace-tab      . '((t (:background unspecified :foreground "gray40" :underline t))))
+  (whitespace-space    . '((t (:background unspecified :foreground "gray40" :underline nil :inherit nil))))
   )
 
 ;;bookmark C-x r mでブックマーク、C-x r l でブックマークを開く

@@ -30,6 +30,13 @@
                   unread-command-events)))
   :config
   (puni-global-mode 1)
+  (leaf *puni-repeat
+    :after repeat
+    :config
+    (defvar-keymap puni-repeat-map
+      :repeat t
+      "h" #'puni-beginning-of-sexp
+      "l" #'puni-end-of-sexp))
   :bind (("C-SPC" . my/puni-selection-start)
          ("C-b" . hydra-puni/body)
          ("M-s h" . puni-beginning-of-sexp)
@@ -90,19 +97,6 @@ puni-slurp
    ("F" puni-barf-forward)
    ("B" puni-barf-forward)
    ("q" nil ))
-
-  :config
-  (puni-global-mode 1)
-  ;; M-s h/l での継続移動を可能にする設定 (repeat-mode)
-  (with-eval-after-load 'repeat
-    (defvar puni-repeat-map
-      (let ((map (make-sparse-keymap)))
-        (define-key map "h" #'puni-beginning-of-sexp)
-        (define-key map "l" #'puni-end-of-sexp)
-        map)
-      "Repeat map for puni-sexp-movement")
-    (put 'puni-beginning-of-sexp 'repeat-map 'puni-repeat-map)
-    (put 'puni-end-of-sexp 'repeat-map 'puni-repeat-map))
   )
 
 ;; 構造的な範囲選択の強化
@@ -125,8 +119,9 @@ puni-slurp
          ("M-s p" . symbol-overlay-jump-prev)
          ("M-s R" . symbol-overlay-remove-all))
   :config
-  ;; n/p での継続移動を可能にする設定 (repeat-mode)
-  (with-eval-after-load 'repeat
+  (leaf *symbol-overlay-repeat
+    :after repeat
+    :config
     (defvar-keymap symbol-overlay-repeat-map
       :doc "Repeat map for symbol-overlay-jump"
       :repeat t
@@ -138,7 +133,7 @@ puni-slurp
 ;; =============================================================================
 
 (global-auto-revert-mode 1)
-(bind-key* (kbd "C-c C-r") 'revert-buffer-no-confirm)
 
-;; 繰り返し入力を便利にする
-(repeat-mode 1)
+(leaf repeat
+  :tag "builtin"
+  :global-minor-mode repeat-mode)
