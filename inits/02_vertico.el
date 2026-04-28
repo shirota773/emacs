@@ -3,6 +3,8 @@
 (require 'navigation-util)
 (require 'window-util)
 
+(file-name-shadow-mode 1)
+
 ;; =============================================================================
 ;; 1. Global Keybindings
 ;; =============================================================================
@@ -10,6 +12,7 @@
 (global-set-key (kbd "C-s") 'swiper)
 (global-set-key (kbd "M-s g") 'consult-grep)
 (global-set-key (kbd "M-s r") 'consult-ripgrep)
+(global-set-key (kbd "M-s i") 'consult-imenu)
 (global-set-key (kbd "M-x") 'execute-extended-command)
 (global-set-key (kbd "M-o") 'embark-act)
 
@@ -27,7 +30,8 @@
 
 (leaf vertico
   :ensure t
-  :hook (after-init-hook . vertico-mode)
+  :hook ((after-init-hook . vertico-mode)
+         (rfn-eshadow-update-overlay-hook . vertico-directory-tidy))
   :custom
   (vertico-count . 20)
   (vertico-cycle . t)
