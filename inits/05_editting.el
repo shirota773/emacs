@@ -31,7 +31,9 @@
   :config
   (puni-global-mode 1)
   :bind (("C-SPC" . my/puni-selection-start)
-         ("C-b" . hydra-puni/body))
+         ("C-b" . hydra-puni/body)
+         ("M-s h" . puni-beginning-of-sexp)
+         ("M-s l" . puni-end-of-sexp))
   :hydra
   (hydra-puni
    (:color pink :hint nil :foreign-keys run)
@@ -86,11 +88,57 @@ puni-slurp
    ("f" puni-slurp-forward)
    ("b" puni-slurp-backward)
    ("F" puni-barf-forward)
-   ("B" puni-barf-backward)
+   ("B" puni-barf-forward)
    ("q" nil ))
+
+  :config
+  (puni-global-mode 1)
+  ;; M-s h/l での継続移動を可能にする設定 (repeat-mode)
+  (with-eval-after-load 'repeat
+    (defvar puni-repeat-map
+      (let ((map (make-sparse-keymap)))
+        (define-key map "h" #'puni-beginning-of-sexp)
+        (define-key map "l" #'puni-end-of-sexp)
+        map)
+      "Repeat map for puni-sexp-movement")
+    (put 'puni-beginning-of-sexp 'repeat-map 'puni-repeat-map)
+    (put 'puni-end-of-sexp 'repeat-map 'puni-repeat-map))
   )
 
 ;; 構造的な範囲選択の強化
 (leaf expreg
   :ensure t
   :bind ("C-=" . expreg-expand))
+
+;; =============================================================================
+;; 2. Navigation & Search Enhancement
+;; =============================================================================
+
+(leaf avy
+  :ensure t
+  :bind (("M-s j" . avy-goto-char-timer)))
+
+(leaf symbol-overlay
+  :ensure t
+  :bind (("M-s s" . symbol-overlay-put)
+         ("M-s n" . symbol-overlay-jump-next)
+         ("M-s p" . symbol-overlay-jump-prev)
+         ("M-s R" . symbol-overlay-remove-all))
+  :config
+  ;; n/p での継続移動を可能にする設定 (repeat-mode)
+  (with-eval-after-load 'repeat
+    (defvar-keymap symbol-overlay-repeat-map
+      :doc "Repeat map for symbol-overlay-jump"
+      :repeat t
+      "n" #'symbol-overlay-jump-next
+      "p" #'symbol-overlay-jump-prev)))
+
+;; =============================================================================
+;; 3. File & Revert Settings
+;; =============================================================================
+
+(global-auto-revert-mode 1)
+(bind-key* (kbd "C-c C-r") 'revert-buffer-no-confirm)
+
+;; 繰り返し入力を便利にする
+(repeat-mode 1)

@@ -43,39 +43,7 @@
   (revert-buffer t t))
 
 ;; =============================================================================
-;; 2. Search & Text Utilities
-;; =============================================================================
-
-(defvar my/word-stored nil)
-(defvar my/word-regex-stored nil)
-
-(defun my/search-word-store (str)
-  (interactive "sStore word: ")
-  (setq my/word-stored str))
-
-(defun my/search-word-regex-store (str)
-  (interactive "sStore regex: ")
-  (setq my/word-regex-stored str))
-
-(defun my/search-forward-regex-stored ()
-  (interactive)
-  (let ((word-point (point))
-        (atmark-offset (string-match "@" my/word-regex-stored))
-        (word-regex-stored-replaced (replace-regexp-in-string "@" "" my/word-regex-stored)))
-    (search-forward-regexp word-regex-stored-replaced)
-    (backward-char (length word-regex-stored-replaced))
-    (forward-char atmark-offset)))
-
-(defun my/search-forward-stored-word ()
-  (interactive)
-  (search-forward my/word-stored))
-
-(defun my/search-backward-stored-word ()
-  (interactive)
-  (search-backward my/word-stored))
-
-;; =============================================================================
-;; 3. UI & Frame Utilities
+;; 2. UI & Frame Utilities
 ;; =============================================================================
 
 (defvar my/alpha-on-flag nil)
@@ -108,17 +76,8 @@
       (modify-frame-parameters nil params))))
 
 ;; =============================================================================
-;; 4. Editing Utilities
+;; 3. Editing Utilities
 ;; =============================================================================
-
-(defun my/jump-brace()
-  "対応括弧へジャンプ"
-  (interactive)
-  (let ((c (following-char))
-        (p (preceding-char)))
-    (if (eq (char-syntax c) 40) (forward-list)
-      (if (eq (char-syntax p) 41) (backward-list)
-        (backward-up-list)))))
 
 (defun move-to-mark ()
   (interactive)
