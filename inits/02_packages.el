@@ -12,6 +12,7 @@
 
 (leaf viewer
   :ensure t
+  :blackout t
   ;; :require t
   :custom
   (view-read-only . t)
@@ -143,11 +144,13 @@
 
 (leaf which-key
   :ensure t
+  :blackout t
   :config
   (which-key-mode 1))
 
 (leaf beacon
   :ensure t
+  :blackout t
   :custom
   (beacon-color . "white")
   (beacon-blink-when-window-scrolls . nil)

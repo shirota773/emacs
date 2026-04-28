@@ -34,6 +34,7 @@
   :ensure t)
 
 (leaf whitespace
+  :blackout (whitespace-mode global-whitespace-mode)
   :leaf-defer nil
   :custom
   (whitespace-style . '(face tabs spaces tab-mark trailing))
