@@ -246,6 +246,7 @@
 (defvar-local my/tabspace-session-list--expanded nil)
 (defvar-local my/tabspace-session-list--marked-sessions nil)
 (defvar-local my/tabspace-session-list--marked-files nil)
+(defvar-local my/tabspace-session-list--marked-open nil)
 
 (defun my/tabspace-list-saved-sessions ()
   "Show an interactive list of saved tab sessions."
@@ -279,10 +280,10 @@
     (erase-buffer)
     (my/tabspace-session-list--insert-header)
     (insert (propertize
-             " [a] Add   [r] Rename   [+] Add File   [d] Mark Delete   [u] Unmark   [x] Execute\n"
+             " [m] Mark Open   [d] Mark Delete   [u] Unmark   [x] Execute   [a] Add   [r] Rename\n"
              'face 'shadow))
     (insert (propertize
-             " [RET] Load   [TAB] Toggle   [g] Refresh   [q] Quit\n\n"
+             " [RET] Load      [TAB] Toggle      [g] Refresh  [q] Quit\n\n"
              'face 'shadow))
     
     (let ((files (directory-files my/tabspace-sessions-dir nil "\\.el\\'")))
@@ -298,15 +299,19 @@
                                       my/tabspace-session-list--expanded
                                       nil nil #'equal))
                  (marker (if expanded "▼" "▶"))
-                 (session-marked (member session-name
-                                         my/tabspace-session-list--marked-sessions))
-                 (smark (if session-marked "D" " ")))
+                 (session-marked-del (member session-name
+                                             my/tabspace-session-list--marked-sessions))
+                 (session-marked-open (member session-name
+                                              my/tabspace-session-list--marked-open))
+                 (smark (cond (session-marked-del "D")
+                              (session-marked-open "*")
+                              (t " "))))
             (insert (propertize
                      (format " %s %s %-20s "
                              smark marker session-name)
-                     'face (if session-marked
-                               'font-lock-warning-face
-                             'my/tabspace-session-name)
+                     'face (cond (session-marked-del 'font-lock-warning-face)
+                                 (session-marked-open 'success)
+                                 (t 'my/tabspace-session-name))
                      'session-name session-name
                      'line-type 'session))
             (insert (propertize (format "(%d files)\n" (length buffers))
@@ -401,8 +406,10 @@
   (pcase (my/tabspace-session-list--line-type)
     ('session
      (let ((name (my/tabspace-session-list--session-at-point)))
-       (when name (cl-pushnew name my/tabspace-session-list--marked-sessions :test #'equal)
-             (my/tabspace-session-list-refresh) (forward-line 1))))
+       (when name
+         (setq my/tabspace-session-list--marked-open (delete name my/tabspace-session-list--marked-open))
+         (cl-pushnew name my/tabspace-session-list--marked-sessions :test #'equal)
+         (my/tabspace-session-list-refresh) (forward-line 1))))
     ('file
      (let ((name (my/tabspace-session-list--session-at-point))
            (file (my/tabspace-session-list--file-at-point)))
@@ -410,12 +417,25 @@
              (my/tabspace-session-list-refresh) (forward-line 1))))
     (_ (message "Nothing to mark at point"))))
 
+(defun my/tabspace-session-list-mark-open ()
+  "Mark the session at point for opening."
+  (interactive)
+  (pcase (my/tabspace-session-list--line-type)
+    ('session
+     (let ((name (my/tabspace-session-list--session-at-point)))
+       (when name
+         (setq my/tabspace-session-list--marked-sessions (delete name my/tabspace-session-list--marked-sessions))
+         (cl-pushnew name my/tabspace-session-list--marked-open :test #'equal)
+         (my/tabspace-session-list-refresh) (forward-line 1))))
+    (_ (message "Can only mark sessions for opening"))))
+
 (defun my/tabspace-session-list-unmark ()
   (interactive)
   (pcase (my/tabspace-session-list--line-type)
     ('session
      (let ((name (my/tabspace-session-list--session-at-point)))
-       (setq my/tabspace-session-list--marked-sessions (delete name my/tabspace-session-list--marked-sessions))))
+       (setq my/tabspace-session-list--marked-sessions (delete name my/tabspace-session-list--marked-sessions))
+       (setq my/tabspace-session-list--marked-open (delete name my/tabspace-session-list--marked-open))))
     ('file
      (let ((name (my/tabspace-session-list--session-at-point))
            (file (my/tabspace-session-list--file-at-point)))
@@ -426,29 +446,40 @@
   (interactive)
   (setq my/tabspace-session-list--marked-sessions nil)
   (setq my/tabspace-session-list--marked-files nil)
+  (setq my/tabspace-session-list--marked-open nil)
   (my/tabspace-session-list-refresh))
 
 (defun my/tabspace-session-list-execute ()
   (interactive)
-  (let ((sessions my/tabspace-session-list--marked-sessions)
-        (files (seq-remove (lambda (cell) (member (car cell) my/tabspace-session-list--marked-sessions))
-                           my/tabspace-session-list--marked-files)))
-    (if (and (null sessions) (null files)) (message "No marks to execute")
-      (when (yes-or-no-p (format "Execute: delete %d session(s), remove %d file entry(ies)? "
-                                 (length sessions) (length files)))
-        (dolist (entry (seq-group-by #'car files))
-          (let* ((sname (car entry))
-                 (paths (mapcar #'cdr (cdr entry)))
-                 (data (my/tabspace--read-session sname))
-                 (buffers (plist-get data :buffers))
-                 (new-buffers (seq-remove (lambda (b) (member (plist-get b :file) paths)) buffers)))
-            (my/tabspace--write-session sname (plist-put (copy-tree data) :buffers new-buffers))))
-        (dolist (sname sessions)
-          (let ((file (my/tabspace--session-file sname))) (when (file-exists-p file) (delete-file file)))
-          (setq my/tabspace-session-list--expanded (assoc-delete-all sname my/tabspace-session-list--expanded)))
-        (setq my/tabspace-session-list--marked-sessions nil) (setq my/tabspace-session-list--marked-files nil)
-        (my/tabspace-session-list-refresh)
-        (message "Executed: %d session(s), %d file(s)" (length sessions) (length files))))))
+  (let ((sessions-del my/tabspace-session-list--marked-sessions)
+        (sessions-open my/tabspace-session-list--marked-open)
+        (files-del (seq-remove (lambda (cell) (member (car cell) my/tabspace-session-list--marked-sessions))
+                               my/tabspace-session-list--marked-files)))
+    (if (and (null sessions-del) (null files-del) (null sessions-open))
+        (message "No marks to execute")
+      ;; 1. Handle Opening
+      (when sessions-open
+        (dolist (sname sessions-open)
+          (my/tabspace-load-tab-session sname))
+        (setq my/tabspace-session-list--marked-open nil)
+        (message "Opened %d session(s)" (length sessions-open)))
+      ;; 2. Handle Deletion
+      (when (or sessions-del files-del)
+        (when (yes-or-no-p (format "Execute: delete %d session(s), remove %d file entry(ies)? "
+                                   (length sessions-del) (length files-del)))
+          (dolist (entry (seq-group-by #'car files-del))
+            (let* ((sname (car entry))
+                   (paths (mapcar #'cdr (cdr entry)))
+                   (data (my/tabspace--read-session sname))
+                   (buffers (plist-get data :buffers))
+                   (new-buffers (seq-remove (lambda (b) (member (plist-get b :file) paths)) buffers)))
+              (my/tabspace--write-session sname (plist-put (copy-tree data) :buffers new-buffers))))
+          (dolist (sname sessions-del)
+            (let ((file (my/tabspace--session-file sname))) (when (file-exists-p file) (delete-file file)))
+            (setq my/tabspace-session-list--expanded (assoc-delete-all sname my/tabspace-session-list--expanded)))
+          (setq my/tabspace-session-list--marked-sessions nil) (setq my/tabspace-session-list--marked-files nil)
+          (message "Executed deletions: %d session(s), %d file(s)" (length sessions-del) (length files-del))))
+      (my/tabspace-session-list-refresh))))
 
 (defun my/tabspace-session-list-add-file ()
   (interactive)
@@ -473,6 +504,7 @@
     (define-key map (kbd "a") #'my/tabspace-session-list-add-session)
     (define-key map (kbd "r") #'my/tabspace-session-list-rename-session)
     (define-key map (kbd "+") #'my/tabspace-session-list-add-file)
+    (define-key map (kbd "m") #'my/tabspace-session-list-mark-open)
     (define-key map (kbd "d") #'my/tabspace-session-list-mark-delete)
     (define-key map (kbd "u") #'my/tabspace-session-list-unmark)
     (define-key map (kbd "U") #'my/tabspace-session-list-unmark-all)
@@ -487,13 +519,15 @@
   (setq-local my/tabspace-session-list--expanded nil)
   (setq-local my/tabspace-session-list--marked-sessions nil)
   (setq-local my/tabspace-session-list--marked-files nil)
+  (setq-local my/tabspace-session-list--marked-open nil)
   (setq-local header-line-format (propertize "Saved Tab Sessions" 'face 'bold))
   (cursor-intangible-mode 1)
   (add-hook 'post-command-hook #'my/tabspace-session-list--ensure-on-item nil t))
 
 (dolist (cmd '(my/tabspace-session-list-mode my/tabspace-session-list-refresh my/tabspace-session-list-toggle
                my/tabspace-session-list-visit my/tabspace-session-list-add-session my/tabspace-session-list-rename-session
-               my/tabspace-session-list-mark-delete my/tabspace-session-list-unmark my/tabspace-session-list-unmark-all
+               my/tabspace-session-list-mark-delete my/tabspace-session-list-mark-open
+               my/tabspace-session-list-unmark my/tabspace-session-list-unmark-all
                my/tabspace-session-list-execute my/tabspace-session-list-add-file))
   (put cmd 'completion-predicate #'ignore))
 
