@@ -80,6 +80,7 @@
    ("}" my/hydra-puni-quit-and-pass-key "}" :exit t)
    ("\"" my/hydra-puni-quit-and-pass-key "\"" :exit t)
    ("'" my/hydra-puni-quit-and-pass-key "'" :exit t)
+   ("C-;" my/hydra-puni-quit-and-pass-key "comment" :exit t)
 
    ("RET" nil "finish" :exit t)
    ("C-g" (progn (deactivate-mark) (setq quit-flag t)) "cancel" :exit t))

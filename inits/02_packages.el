@@ -425,41 +425,14 @@
 
 (leaf recentf-ext
   :ensure t
-  :init
-  (defvar my-recentf-list-prev nil)
-  (defadvice recentf-save-list
-      (around no-message activate)
-    "If `recentf-list' and previous recentf-list are equal,
-do nothing. And suppress the output from `message' and
-`write-file' to minibuffer."
-    (unless (equal recentf-list my-recentf-list-prev)
-      (cl-flet ((message (format-string &rest args)
-                         (eval `(format ,format-string ,@args)))
-                (write-file (file &optional confirm)
-                            (let ((str (buffer-string)))
-                              (with-temp-file file
-                                (insert str)))))
-        ad-do-it
-        (setq my-recentf-list-prev recentf-list))))
-  ;; https://masutaka.net/chalow/2011-10-30-2.html
-
-  ;; エコーエリアに表示しない
-  (defmacro with-suppressed-message (&rest body)
-    (declare (indent 0))
-    (let ((message-log-max nil))
-      `(with-temp-message (or (current-message) "") ,@body)))
-
-
   :config
   (setq recentf-max-saved-items 1000)   ;; recentf に保存するファイルの数
   (setq recentf-exclude ;; recentfに含めいないファイルの指定
         '(".recentf"
           ".ido.*"
           ".ipa"))
-  (setq recentf-auto-cleanup 10)
-  (setq recentf-auto-save-timer
-        (run-with-idle-timer 30 t
-                             #'(lambda () (with-suppressed-message (recentf-save-list)))))
+  (setq recentf-auto-cleanup 'never)
+  (add-hook 'kill-emacs-hook #'recentf-cleanup)
   (recentf-mode 1))
 
 ;; (recentf-load-list)
@@ -508,12 +481,6 @@ do nothing. And suppress the output from `message' and
   (setq open-junk-file-format "~/junk/%Y-%m-%d-%H.")
   (setq ediff-window-setup-function 'ediff-setup-windows-plain))
 
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; dired
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; dired end
 (leaf ace-window
   :ensure t
   :bind ("C-x o" . ace-window)
