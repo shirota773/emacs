@@ -220,8 +220,28 @@
         (message "Tab session '%s' deleted" selected-name)))))
 
 ;; =============================================================================
-;; 3. Tab Session List Mode Implementation
+;; 3. Tab Session List Mode Implementation (Dashboard-like)
 ;; =============================================================================
+
+(defface my/tabspace-session-header
+  '((t (:inherit font-lock-function-name-face :weight bold :height 1.4)))
+  "Face for the session list header."
+  :group 'tabspaces)
+
+(defface my/tabspace-session-name
+  '((t (:inherit font-lock-keyword-face :weight bold)))
+  "Face for session names in the list."
+  :group 'tabspaces)
+
+(defface my/tabspace-session-file
+  '((t (:inherit font-lock-string-face)))
+  "Face for file paths in the session list."
+  :group 'tabspaces)
+
+(defface my/tabspace-session-meta
+  '((t (:inherit font-lock-comment-face :italic t)))
+  "Face for metadata/counts in the session list."
+  :group 'tabspaces)
 
 (defvar-local my/tabspace-session-list--expanded nil)
 (defvar-local my/tabspace-session-list--marked-sessions nil)
@@ -237,6 +257,19 @@
       (my/tabspace-session-list-refresh))
     (pop-to-buffer buf)))
 
+(defun my/tabspace-session-list--insert-header ()
+  "Insert a decorative header for the session list."
+  (let ((inhibit-read-only t))
+    (insert (propertize "  _____      _                               \n" 'face 'my/tabspace-session-header))
+    (insert (propertize " |_   _|_ _ | |__  ___ _ __   __ _  ___ ___ \n" 'face 'my/tabspace-session-header))
+    (insert (propertize "   | |/ _` || '_ \\/ __| '_ \\ / _` |/ __/ _ \\\n" 'face 'my/tabspace-session-header))
+    (insert (propertize "   | | (_| || |_) \\__ \\ |_) | (_| | (_|  __/\n" 'face 'my/tabspace-session-header))
+    (insert (propertize "   |_|\\__,_||_.__/|___/ .__/ \\__,_|\\___\___|\n" 'face 'my/tabspace-session-header))
+    (insert (propertize "                      |_|                    \n" 'face 'my/tabspace-session-header))
+    (insert "\n")
+    (insert (propertize "  Manage and Restore your Saved Tabspaces\n" 'face 'my/tabspace-session-meta))
+    (insert (propertize (make-string 60 ?─) 'face 'shadow) "\n\n")))
+
 (defun my/tabspace-session-list-refresh ()
   "Redraw the session list buffer."
   (interactive)
@@ -244,19 +277,18 @@
         (saved-point (point))
         (header-start (point-min)))
     (erase-buffer)
-    (setq header-start (point))
-    (insert (propertize (make-string 60 ?=) 'face '(:foreground "gray50")) "\n")
+    (my/tabspace-session-list--insert-header)
     (insert (propertize
-             "[a]dd [r]ename [+]add-file [d]mark-delete [u]nmark [U]nmark-all [x]execute\n"
-             'face '(:foreground "gray50")))
+             " [a] Add   [r] Rename   [+] Add File   [d] Mark Delete   [u] Unmark   [x] Execute\n"
+             'face 'shadow))
     (insert (propertize
-             "[RET]visit/load  [TAB/SPC]toggle  [g]refresh  [q]uit\n\n"
-             'face '(:foreground "gray50")))
-    (add-text-properties header-start (point) '(cursor-intangible t))
+             " [RET] Load   [TAB] Toggle   [g] Refresh   [q] Quit\n\n"
+             'face 'shadow))
+    
     (let ((files (directory-files my/tabspace-sessions-dir nil "\\.el\\'")))
       (if (null files)
           (insert (propertize "  (no saved sessions)\n"
-                               'face '(:foreground "gray60")))
+                               'face 'shadow))
         (dolist (f files)
           (let* ((session-name (replace-regexp-in-string
                                 "_" " " (file-name-sans-extension f)))
@@ -270,17 +302,19 @@
                                          my/tabspace-session-list--marked-sessions))
                  (smark (if session-marked "D" " ")))
             (insert (propertize
-                     (format "%s %s %s  (%d files)\n"
-                             smark marker session-name (length buffers))
+                     (format " %s %s %-20s "
+                             smark marker session-name)
                      'face (if session-marked
                                'font-lock-warning-face
-                             '(:foreground "cyan" :weight bold))
+                             'my/tabspace-session-name)
                      'session-name session-name
                      'line-type 'session))
+            (insert (propertize (format "(%d files)\n" (length buffers))
+                                'face 'my/tabspace-session-meta))
             (when expanded
               (if (null buffers)
                   (insert (propertize "      (no files)\n"
-                                      'face '(:foreground "gray60")
+                                      'face 'shadow
                                       'session-name session-name
                                       'line-type 'file-empty))
                 (dolist (b buffers)
@@ -294,10 +328,11 @@
                                      fmark
                                      (or (and file (abbreviate-file-name file))
                                          name))
-                             'face (when file-marked 'font-lock-warning-face)
+                             'face (if file-marked 'font-lock-warning-face 'my/tabspace-session-file)
                              'session-name session-name
                              'file-path file
                              'line-type 'file))))))))))
+    (insert "\n" (propertize (make-string 60 ?─) 'face 'shadow) "\n")
     (let ((first (or (text-property-any (point-min) (point-max)
                                         'line-type 'session)
                      (point-min))))

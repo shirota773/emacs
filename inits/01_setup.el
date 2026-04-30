@@ -283,3 +283,22 @@
 
 (when (functionp 'mac-auto-ascii-mode)  ;; ミニバッファに入力時、自動的に英語モード
   (mac-auto-ascii-mode 1))
+
+;; =============================================================================
+;; Startup Screen
+;; =============================================================================
+
+(defun my/startup-screen ()
+  "Display the tabspace session list at startup."
+  (interactive)
+  (require 'tabspace-util)
+  (my/tabspace-list-saved-sessions)
+  ;; Ensure we are on the session list buffer
+  (when (get-buffer "*Tab Sessions*")
+    (switch-to-buffer "*Tab Sessions*")
+    (delete-other-windows)))
+
+(add-hook 'emacs-startup-hook #'my/startup-screen)
+
+(provide '01_setup.el)
+;;; 01_setup.el ends here
