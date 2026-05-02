@@ -1,17 +1,14 @@
 (leaf *coding
   :config
-  ;; Default coding systems for files and buffers
   (prefer-coding-system 'utf-8-unix)
-  ;; (set-language-environment "Japanese")
+  (set-language-environment "Japanese")
   (setq default-buffer-file-coding-system 'utf-8-unix)
   (set-buffer-file-coding-system 'utf-8-unix)
   (set-terminal-coding-system 'utf-8-unix)
   (set-keyboard-coding-system 'utf-8-unix)
-  
-  ;; Windows clipboard requires UTF-16LE to prevent Japanese character garbling (mojibake)
-  (set-clipboard-coding-system 'utf-16le)
-  (set-selection-coding-system 'utf-16le)
-  
+  (set-clipboard-coding-system 'utf-16le-dos)
+  (set-selection-coding-system 'utf-16le-dos)
+  (set-terminal-coding-system 'utf-8-unix)
   (set-frame-font "Ricty diminished-12" nil t)
   )
 
