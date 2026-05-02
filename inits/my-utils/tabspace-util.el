@@ -220,6 +220,28 @@
         (message "Tab session '%s' deleted" selected-name)))))
 
 ;; =============================================================================
+;; 2.5 Common List Utilities
+;; =============================================================================
+
+(defun my/tab-util--ensure-on-item ()
+  "Ensure point is on an item with 'line-type property."
+  (when (and (memq major-mode '(my/tabspaces-buffer-list-mode my/tabspace-session-list-mode))
+             (null (get-text-property (point) 'line-type)))
+    (let* ((pos (point))
+           (next (text-property-not-all pos (point-max) 'line-type nil))
+           (prev (previous-single-property-change pos 'line-type)))
+      ;; If prev found a transition, we need to check if the property before it is non-nil
+      (when (and prev (> prev (point-min)) (null (get-text-property (1- prev) 'line-type)))
+        (setq prev (previous-single-property-change (1- prev) 'line-type)))
+      
+      (let ((target (cond
+                     ((and next prev) (if (<= (- next pos) (- pos prev)) next prev))
+                     (next next)
+                     (prev prev)
+                     (t (text-property-not-all (point-min) (point-max) 'line-type nil)))))
+        (when target (goto-char target))))))
+
+;; =============================================================================
 ;; 3. Tab Session List Mode Implementation (Dashboard-like)
 ;; =============================================================================
 
@@ -348,11 +370,7 @@
 (defun my/tabspace-session-list--file-at-point () (get-text-property (point) 'file-path))
 
 (defun my/tabspace-session-list--ensure-on-item ()
-  (when (and (eq major-mode 'my/tabspace-session-list-mode)
-             (null (my/tabspace-session-list--line-type)))
-    (let ((target (or (text-property-not-all (point) (point-max) 'line-type nil)
-                      (text-property-not-all (point-min) (point) 'line-type nil))))
-      (when target (goto-char target)))))
+  (my/tab-util--ensure-on-item))
 
 (defun my/tabspace-session-list-toggle ()
   (interactive)
@@ -522,7 +540,7 @@
   (setq-local my/tabspace-session-list--marked-open nil)
   (setq-local header-line-format (propertize "Saved Tab Sessions" 'face 'bold))
   (cursor-intangible-mode 1)
-  (add-hook 'post-command-hook #'my/tabspace-session-list--ensure-on-item nil t))
+  (add-hook 'post-command-hook #'my/tab-util--ensure-on-item nil t))
 
 (dolist (cmd '(my/tabspace-session-list-mode my/tabspace-session-list-refresh my/tabspace-session-list-toggle
                my/tabspace-session-list-visit my/tabspace-session-list-add-session my/tabspace-session-list-rename-session
@@ -629,11 +647,22 @@
       (my/tabspaces-refresh-buffer-list))
     (pop-to-buffer buf)))
 
-(defun my/tabspaces--buffer-tab-count (buffer)
-  (let ((count 0)) (dolist (tab (tab-bar-tabs)) (let ((buffers (alist-get 'wc-bl tab))) (when (memq buffer buffers) (setq count (1+ count))))) count))
-
 (defun my/tabspaces--get-buffer-tabs (buffer)
-  (let ((tabs '())) (dolist (tab (tab-bar-tabs)) (let ((tab-name (alist-get 'name tab)) (buffers (alist-get 'wc-bl tab))) (when (memq buffer buffers) (push tab-name tabs)))) (nreverse tabs)))
+  "Return a list of tab names that contain BUFFER."
+  (let ((tabs '())
+        (current-tab-name (alist-get 'name (tab-bar--current-tab))))
+    (dolist (tab (tab-bar-tabs))
+      (let* ((tab-name (alist-get 'name tab))
+             (buffers (if (string= tab-name current-tab-name)
+                          (tabspaces--buffer-list)
+                        (alist-get 'wc-bl tab))))
+        (when (memq buffer buffers)
+          (push tab-name tabs))))
+    (nreverse tabs)))
+
+(defun my/tabspaces--buffer-tab-count (buffer)
+  "Return the number of tabs that contain BUFFER."
+  (length (my/tabspaces--get-buffer-tabs buffer)))
 
 (defun my/tabspaces--should-show-buffer-p (buffer)
   (cond ((null my/tabspaces-filter-mode) t)
@@ -653,16 +682,21 @@
   (interactive)
   (let ((inhibit-read-only t) (saved-point (point)) (header-start (point-min)) (i 1))
     (erase-buffer) (setq header-start (point))
-    (insert (propertize (make-string 80 ?=) 'face '(:foreground "gray50")) "\n")
-    (insert (propertize "Mark:   " 'face '(:foreground "gray50")) (propertize "[d]elete [k]ill [s]ave [m]ark [u]nmark [U]nmark-all [t]oggle [x]execute\n" 'face '(:foreground "gray50")))
-    (insert (propertize "Filter: " 'face '(:foreground "gray50")) (propertize "[/ m]odified [/ f]ile [/ s]pecial [/ t]current-tab [/ /]clear\n" 'face '(:foreground "gray50")))
-    (insert (propertize "Sort:   " 'face '(:foreground "gray50")) (propertize "[o n]ame [o m]odified [o s]ize\n" 'face '(:foreground "gray50")))
-    (insert (propertize "Other:  " 'face '(:foreground "gray50")) (propertize "[RET]visit [TAB/SPC]toggle [M]ove-to-tab [g]refresh [% n]regexp [* m]modified [q]uit\n\n" 'face '(:foreground "gray50")))
-    (add-text-properties header-start (point) '(cursor-intangible t))
+    (insert (propertize "  _____      _                               \n" 'face 'my/tabspace-session-header))
+    (insert (propertize " |_   _|_ _ | |__  ___ _ __   __ _  ___ ___ \n" 'face 'my/tabspace-session-header))
+    (insert (propertize "   | |/ _` || '_ \\/ __| '_ \\ / _` |/ __/ _ \\\n" 'face 'my/tabspace-session-header))
+    (insert (propertize "   | | (_| || |_) \\__ \\ |_) | (_| | (_|  __/\n" 'face 'my/tabspace-session-header))
+    (insert (propertize "   |_|\\__,_||_.__/|___/ .__/ \\__,_|\\___\___|\n" 'face 'my/tabspace-session-header))
+    (insert (propertize "                      |_|                    \n" 'face 'my/tabspace-session-header))
+    (insert "\n")
+    (insert (propertize "  Manage your Tabspaces and active Buffers\n" 'face 'my/tabspace-session-meta))
+    (insert (propertize (make-string 60 ?─) 'face 'shadow) "\n\n")
+    (insert (propertize " [m] mark [u] unmark [d] del [k] kill [x] execute [TAB] toggle\n" 'face 'shadow))
+    (insert (propertize " [/] filter [o] sort [%/*] mark-by [g] refresh [RET] visit [q] quit\n\n" 'face 'shadow))
     (let ((current-tab-name (alist-get 'name (tab-bar--current-tab))))
       (dolist (tab (tab-bar-tabs))
         (let* ((tab-name (alist-get 'name tab)) (current (string= tab-name current-tab-name)) (collapsed (member tab-name my/tabspaces-buffer-list--collapsed))
-               (marker (if collapsed "▶" "▼")) (all-buffers (seq-filter #'buffer-live-p (if current (frame-parameter nil 'buffer-list) (or (alist-get 'wc-bl tab) '()))))
+               (marker (if collapsed "▶" "▼")) (all-buffers (seq-filter #'buffer-live-p (if current (tabspaces--buffer-list) (or (alist-get 'wc-bl tab) '()))))
                (filtered-buffers (seq-filter #'my/tabspaces--should-show-buffer-p all-buffers)) (sorted-buffers (my/tabspaces--sort-buffers filtered-buffers)))
           (insert (propertize (format "%s [%d] %s%s (%d/%d buffers)\n" marker i tab-name (if current " <== current" "") (length filtered-buffers) (length all-buffers))
                               'face '(:foreground "cyan" :weight bold) 'tab-name tab-name 'line-type 'tab))
@@ -675,13 +709,14 @@
                                                                              (insert (propertize (format "    %s %s %-40s %6s%s%s\n" mark-char (if modified "*" " ") buf-name (file-size-human-readable size) (if file (format " (%s)" (abbreviate-file-name file)) "") (or tabs-info ""))
                                                                                                  'face face 'buffer-name buf-name 'tab-name tab-name 'line-type 'buffer)))))
                               (insert (propertize "      (no buffers)\n" 'face '(:foreground "gray60") 'tab-name tab-name 'line-type 'empty))))
-          (insert (propertize "\n" 'cursor-intangible t)) (setq i (1+ i)))))
+          (setq i (1+ i)))))
     (let ((first (or (text-property-any (point-min) (point-max) 'line-type 'tab) (point-min)))) (goto-char (max first (min saved-point (point-max)))))))
 
 (defun my/tabspaces-buffer-list--line-type () (get-text-property (point) 'line-type))
 (defun my/tabspaces-buffer-list--tab-at-point () (get-text-property (point) 'tab-name))
 (defun my/tabspaces-buffer-at-point () (when (eq (my/tabspaces-buffer-list--line-type) 'buffer) (let ((name (get-text-property (point) 'buffer-name))) (and name (get-buffer name)))))
-(defun my/tabspaces-buffer-list--ensure-on-item () (when (and (eq major-mode 'my/tabspaces-buffer-list-mode) (null (my/tabspaces-buffer-list--line-type))) (let ((target (or (text-property-not-all (point) (point-max) 'line-type nil) (text-property-not-all (point-min) (point) 'line-type nil)))) (when target (goto-char target)))))
+(defun my/tabspaces-buffer-list--ensure-on-item ()
+  (my/tab-util--ensure-on-item))
 (defun my/tabspaces-toggle-tab () (interactive) (let ((name (my/tabspaces-buffer-list--tab-at-point))) (when name (if (member name my/tabspaces-buffer-list--collapsed) (setq my/tabspaces-buffer-list--collapsed (delete name my/tabspaces-buffer-list--collapsed)) (push name my/tabspaces-buffer-list--collapsed)) (my/tabspaces-refresh-buffer-list))))
 (defun my/tabspaces-mark-buffer (mark-type) (let ((buf (my/tabspaces-buffer-at-point))) (when buf (setf (alist-get (buffer-name buf) my/tabspaces-buffer-marks nil nil #'equal) mark-type) (my/tabspaces-refresh-buffer-list) (forward-line 1))))
 (defun my/tabspaces-unmark-buffer () (interactive) (let ((buf (my/tabspaces-buffer-at-point))) (when buf (setq my/tabspaces-buffer-marks (assoc-delete-all (buffer-name buf) my/tabspaces-buffer-marks)) (my/tabspaces-refresh-buffer-list) (forward-line 1))))
@@ -765,7 +800,7 @@
   (setq truncate-lines t) (setq buffer-read-only t)
   (setq-local my/tabspaces-buffer-marks nil) (setq-local my/tabspaces-filter-mode 'file) (setq-local my/tabspaces-sort-mode 'name) (setq-local my/tabspaces-buffer-list--collapsed nil)
   (setq-local header-line-format '(:eval (concat (propertize "Tabspaces and Buffers" 'face 'bold) (when my/tabspaces-filter-mode (format " [Filter: %s]" my/tabspaces-filter-mode)) (format " [Sort: %s]" my/tabspaces-sort-mode))))
-  (cursor-intangible-mode 1) (add-hook 'post-command-hook #'my/tabspaces-buffer-list--ensure-on-item nil t))
+  (cursor-intangible-mode 1) (add-hook 'post-command-hook #'my/tab-util--ensure-on-item nil t))
 
 (dolist (cmd '(my/tabspaces-buffer-list-mode my/tabspaces-refresh-buffer-list my/tabspaces-visit-buffer my/tabspaces-toggle-tab
                my/tabspaces-mark my/tabspaces-mark-delete my/tabspaces-mark-kill my/tabspaces-mark-save my/tabspaces-unmark-buffer
