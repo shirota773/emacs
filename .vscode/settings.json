@@ -52,6 +52,28 @@
     // Breadcrumbs
     "breadcrumb.background": "#1e1e2e",
     "breadcrumb.foreground": "#cba6f7",
-    "breadcrumb.focusForeground": "#cba6f7"
+    "breadcrumb.focusForeground": "#cba6f7",
+
+    // Terminal
+    "terminal.background": "#1e1e2e",
+    "terminal.foreground": "#cdd6f4",
+    "terminalCursor.foreground": "#cba6f7",
+    "terminalCursor.background": "#1e1e2e",
+    "terminal.ansiBlack": "#45475a",
+    "terminal.ansiBlue": "#89b4fa",
+    "terminal.ansiCyan": "#94e2d5",
+    "terminal.ansiGreen": "#a6e3a1",
+    "terminal.ansiMagenta": "#cba6f7",
+    "terminal.ansiRed": "#f38ba8",
+    "terminal.ansiWhite": "#bac2de",
+    "terminal.ansiYellow": "#f9e2af",
+    "terminal.ansiBrightBlack": "#585b70",
+    "terminal.ansiBrightBlue": "#89b4fa",
+    "terminal.ansiBrightCyan": "#94e2d5",
+    "terminal.ansiBrightGreen": "#a6e3a1",
+    "terminal.ansiBrightMagenta": "#cba6f7",
+    "terminal.ansiBrightRed": "#f38ba8",
+    "terminal.ansiBrightWhite": "#a6adc8",
+    "terminal.ansiBrightYellow": "#f9e2af"
   }
 }
