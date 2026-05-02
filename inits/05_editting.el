@@ -30,6 +30,7 @@
                   unread-command-events)))
   :config
   (puni-global-mode 1)
+  (add-hook 'minibuffer-setup-hook #'hydra-keyboard-quit)
   (leaf *puni-repeat
     :after repeat
     :config
