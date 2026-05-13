@@ -22,7 +22,8 @@
   :bind (("C-s" . swiper))
   :custom
   (ivy-count-format . "%d/%d ")
-  (ivy-height . 15))
+  (ivy-height . 15)
+  (ivy-wrap . t))
 
 ;; =============================================================================
 ;; 2. Vertico & Related Packages
