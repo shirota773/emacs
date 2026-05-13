@@ -34,7 +34,7 @@
  ("C-0"     . delete-window)
  ("<f9>"    . delete-other-windows)
  ("C-^"     . enlarge-window)
- ("C-."     . dabbrev-expand)
+ ("C-."     . my/dabbrev-expand-or-completing-read)
  ("<f12>"   . shell)
  ("C-x C-q" . view-mode)
  ("C-x k"   . kill-current-buffer)

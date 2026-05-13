@@ -79,6 +79,64 @@
 ;; 3. Editing Utilities
 ;; =============================================================================
 
+(defun my/dabbrev-expand-or-completing-read ()
+  "Perform normal `dabbrev-expand` on the first call.
+If executed consecutively, narrow down candidates with Vertico/completing-read."
+  (interactive)
+  (require 'dabbrev)
+  (if (and (eq last-command 'my/dabbrev-expand-or-completing-read)
+           (boundp 'dabbrev--last-expansion)
+           dabbrev--last-expansion)
+      ;; [Second consecutive execution]
+      (let* ((abbrev dabbrev--last-abbreviation) ; Original input before expansion (e.g., "aaa")
+             (expansion dabbrev--last-expansion) ; First expansion string (e.g., "aaaccc")
+             ;; Accurately calculate the start position of the first expansion
+             (start-pos (- (point) (length expansion)))
+             ;; Set a marker at the start position (including buffer info)
+             (abbrev-location (copy-marker start-pos))
+             (success nil)
+             (selected nil))
+        ;; Clear dabbrev internal state (scan position, previous buffer, etc.) for a clean scan
+        (dabbrev--reset-global-variables)
+        ;; Revert the first expansion back to the original input
+        (delete-region start-pos (point))
+        (insert abbrev)
+        ;; Respect user case-fold settings
+        (let* ((ignore-case (if (eq dabbrev-case-fold-search 'case-fold-search)
+                                case-fold-search
+                              dabbrev-case-fold-search))
+               ;; Retrieve expansions from all buffers and remove duplicates
+               (candidates (delete-dups (dabbrev--find-all-expansions abbrev ignore-case))))
+          (if (null candidates)
+              (progn
+                (set-marker abbrev-location nil)
+                (message "No dabbrev candidates found for \"%s\"" abbrev))
+            (unwind-protect
+                (progn
+                  ;; Launch Vertico (completing-read) to select a candidate
+                  (setq selected (completing-read (format "Dabbrev (%s): " abbrev)
+                                                   candidates nil t abbrev))
+                  (setq success t))
+              ;; Cleanup process (always run on both success and cancellation)
+              ;; Safely perform buffer operations only on the marker's buffer
+              (let ((target-buf (marker-buffer abbrev-location)))
+                (when (buffer-live-p target-buf)
+                  (with-current-buffer target-buf
+                    (if success
+                        ;; [On successful selection]
+                        (progn
+                          (delete-region abbrev-location (point))
+                          (insert selected)
+                          (setq dabbrev--last-expansion nil))
+                      ;; [On cancellation (C-g)] Restore back to the original prefix
+                      (delete-region abbrev-location (point))
+                      (insert abbrev)
+                      (message "Dabbrev selection cancelled. Restored to \"%s\"" abbrev)))))
+              ;; Release the marker to help garbage collection
+              (set-marker abbrev-location nil)))))
+    ;; [First execution] Call standard dabbrev-expand
+    (dabbrev-expand nil)))
+
 (defun move-to-mark ()
   (interactive)
   (let ((pos (point)))

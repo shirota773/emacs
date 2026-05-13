@@ -503,3 +503,6 @@
 
 (leaf ahk-mode
   :ensure t)
+
+(require 'my-defuns)
+
