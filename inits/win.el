@@ -10,6 +10,15 @@
   (set-selection-coding-system 'utf-16le-dos)
   (set-terminal-coding-system 'utf-8-unix)
   (set-frame-font "Ricty diminished-12" nil t)
+
+  (defun my/force-unix-eol-on-save ()
+    "Save visited files with LF line endings."
+    (when buffer-file-name
+      (let ((coding-system (or buffer-file-coding-system 'utf-8-unix)))
+        (set-buffer-file-coding-system
+         (coding-system-change-eol-conversion coding-system 'unix) t))))
+
+  (add-hook 'before-save-hook #'my/force-unix-eol-on-save)
   )
 
 (leaf *IME
