@@ -11,6 +11,22 @@
   (set-terminal-coding-system 'utf-8-unix)
   (set-frame-font "Ricty diminished-12" nil t)
 
+  (defun my/has-crlf-p ()
+    "Return non-nil when the current buffer contains CRLF line endings."
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (re-search-forward "\r$" nil t)))
+
+  (defun my/warn-crlf-before-save ()
+    "Warn when the current buffer still contains CRLF line endings."
+    (when (and buffer-file-name (my/has-crlf-p))
+      (display-warning
+       'my/crlf
+       (format "CRLF detected in %s; saving will normalize it to LF."
+               (file-name-nondirectory buffer-file-name))
+       :warning)))
+
   (defun my/force-unix-eol-on-save ()
     "Save visited files with LF line endings."
     (when buffer-file-name
@@ -18,6 +34,21 @@
         (set-buffer-file-coding-system
          (coding-system-change-eol-conversion coding-system 'unix) t))))
 
+  (defun my/strip-crlf-from-string (string)
+    "Convert CRLF and lone CR characters in STRING to LF."
+    (replace-regexp-in-string "\r\n?" "\n" string))
+
+  (defun my/strip-crlf-in-yank (orig-fun &rest args)
+    "Strip CR characters from pasted text before inserting it."
+    (let ((first-arg (car args)))
+      (if (stringp first-arg)
+          (apply orig-fun
+                 (cons (my/strip-crlf-from-string first-arg)
+                       (cdr args)))
+        (apply orig-fun args))))
+
+  (advice-add 'insert-for-yank :around #'my/strip-crlf-in-yank)
+  (add-hook 'before-save-hook #'my/warn-crlf-before-save)
   (add-hook 'before-save-hook #'my/force-unix-eol-on-save)
   )
 
