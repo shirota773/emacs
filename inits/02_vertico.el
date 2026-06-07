@@ -58,6 +58,15 @@
   :bind (("M-y" . consult-yank-pop)
          ("C-;" . consult-buffer)))
 
+;; consult-dir: ディレクトリを起点に find-file を切り替える。
+;; 現タブのプロセス用ディレクトリを最優先候補にする (tabspace-dir-util.el)。
+(leaf consult-dir
+  :ensure t
+  :bind (("C-x C-d" . consult-dir)        ; 既定の list-directory を上書き
+         (:vertico-map
+          ("C-x C-d" . consult-dir)
+          ("C-x C-j" . consult-dir-jump-file))))
+
 (leaf embark
   :ensure t
   :bind (("C-." . embark-act)

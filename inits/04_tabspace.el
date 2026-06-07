@@ -1,6 +1,7 @@
 ;;; 04_tabspace.el --- tab-bar / tabspaces 設定 -*- lexical-binding: t; -*-
 (add-to-list 'load-path (expand-file-name "inits/my-utils" user-emacs-directory))
 (require 'tabspace-util)
+(require 'tabspace-dir-util)
 
 (leaf tab-bar
   :custom
@@ -43,6 +44,8 @@
 [_C-f_]:switch-buffer&tab      [_R_]: remove-buffer-selected | [_C-K_]:close-buffers&kill-buffers
 [_s_]:  save-session           [_C-s_]: load-session         | [_d_]:delete-session
 [_ws_]: save-layout            [_wl_]: load-layout           | [_wd_]:delete-layout
+-----------------------------------------------------------------------------
+[_pr_]: set-proc-root  [_pa_]: add-dir  [_pc_]: add-current  [_pD_]: remove-dir  [_pj_]: jump-dir
 
  "
           ("h" tab-bar-switch-to-prev-tab :exit nil)
@@ -64,6 +67,11 @@
           ("ws" my/tabspace-save-layout)
           ("wl" my/tabspace-load-layout)
           ("wd" my/tabspace-delete-layout)
+          ("pr" my/tabspace-set-process-root)
+          ("pa" my/tabspace-add-dir)
+          ("pc" my/tabspace-add-current-dir)
+          ("pD" my/tabspace-remove-dir)
+          ("pj" my/tabspace-jump-dir)
           ("q" nil "exit"))
   :config
   (advice-add 'project-switch-project :around #'my/project-switch-advice)

@@ -156,7 +156,10 @@
          (session-data
           (list :tab-name tab-name
                 :buffers buffer-info
-                :layouts (plist-get existing :layouts))))
+                :layouts (plist-get existing :layouts)
+                ;; tabspace-dir-util.el が持つフィールドを保存時に消さない
+                :process-root (plist-get existing :process-root)
+                :directories (plist-get existing :directories))))
     (my/tabspace--write-session tab-name session-data)
     (message "Tab session '%s' saved (%d buffers)" tab-name (length buffer-info))))
 
