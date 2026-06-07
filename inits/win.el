@@ -1,45 +1,42 @@
+;;; win.el --- Windows 固有設定 -*- lexical-binding: t; -*-
 (leaf *coding
   :config
-  (prefer-coding-system 'utf-8-unix)
+  ;; 言語環境を先に設定する。set-language-environment は coding 優先順位を
+  ;; 日本語既定へリセットするため、UTF-8 を最優先にする prefer-coding-system は
+  ;; 必ずその後に呼ぶ (順序を逆にすると UTF-8 優先が打ち消され文字化けの原因)。
   (set-language-environment "Japanese")
-  (setq default-buffer-file-coding-system 'utf-8-unix)
-  (set-buffer-file-coding-system 'utf-8-unix)
+  (prefer-coding-system 'utf-8-unix)
+  ;; 新規ファイルは UTF-8 / LF を既定にする。
+  (setq-default buffer-file-coding-system 'utf-8-unix)
   (set-terminal-coding-system 'utf-8-unix)
   (set-keyboard-coding-system 'utf-8-unix)
+  ;; Windows のクリップボードは UTF-16LE。日本語コピペの文字化け対策。
   (set-clipboard-coding-system 'utf-16le-dos)
   (set-selection-coding-system 'utf-16le-dos)
-  (set-terminal-coding-system 'utf-8-unix)
   (set-frame-font "Ricty diminished-12" nil t)
 
-  (defun my/has-crlf-p ()
-    "Return non-nil when the current buffer contains CRLF line endings."
-    (save-restriction
-      (widen)
-      (goto-char (point-min))
-      (re-search-forward "\r$" nil t)))
+  ;; ---- 改行コード (CRLF を使わず LF に統一する) ----
+  ;; 新規ファイル: 上の utf-8-unix 既定により LF。
+  ;; 既存 CRLF ファイル: 保存時に確認してから LF へ変換する。
 
-  (defun my/warn-crlf-before-save ()
-    "Warn when the current buffer still contains CRLF line endings."
-    (when (and buffer-file-name (my/has-crlf-p))
-      (display-warning
-       'my/crlf
-       (format "CRLF detected in %s; saving will normalize it to LF."
-               (file-name-nondirectory buffer-file-name))
-       :warning)))
-
-  (defun my/force-unix-eol-on-save ()
-    "Save visited files with LF line endings."
-    (when buffer-file-name
-      (let ((coding-system (or buffer-file-coding-system 'utf-8-unix)))
-        (set-buffer-file-coding-system
-         (coding-system-change-eol-conversion coding-system 'unix) t))))
+  (defun my/buffer-uses-crlf-p ()
+    "現在のバッファが CRLF (DOS) で保存される、または CR を含む場合に非 nil。
+正しく DOS と判別されたファイルは buffer 内に CR を持たないため、
+coding-system の EOL 種別 (1 = dos) も確認する。"
+    (or (and buffer-file-coding-system
+             (eq (coding-system-eol-type buffer-file-coding-system) 1))
+        (save-excursion
+          (save-restriction
+            (widen)
+            (goto-char (point-min))
+            (search-forward "\r" nil t)))))
 
   (defun my/strip-crlf-from-string (string)
-    "Convert CRLF and lone CR characters in STRING to LF."
+    "STRING 中の CRLF / 単独 CR を LF に変換する。"
     (replace-regexp-in-string "\r\n?" "\n" string))
 
   (defun my/strip-crlf-in-yank (orig-fun &rest args)
-    "Strip CR characters from pasted text before inserting it."
+    "貼り付けテキストから CR を除去してから挿入する (コピペの改行混入対策)。"
     (let ((first-arg (car args)))
       (if (stringp first-arg)
           (apply orig-fun
@@ -47,9 +44,26 @@
                        (cdr args)))
         (apply orig-fun args))))
 
+  (defun my/confirm-strip-crlf-on-save ()
+    "既存ファイルが CRLF のとき、確認のうえ LF へ変換して保存する。"
+    (when (and buffer-file-name (my/buffer-uses-crlf-p))
+      (when (y-or-n-p
+             (format "%s は CRLF です。LF に変換して保存しますか? "
+                     (file-name-nondirectory buffer-file-name)))
+        ;; 保存時の改行を LF にする
+        (set-buffer-file-coding-system
+         (coding-system-change-eol-conversion
+          (or buffer-file-coding-system 'utf-8) 'unix))
+        ;; buffer 内に残る単独 CR も除去する
+        (save-excursion
+          (save-restriction
+            (widen)
+            (goto-char (point-min))
+            (while (search-forward "\r" nil t)
+              (replace-match "")))))))
+
   (advice-add 'insert-for-yank :around #'my/strip-crlf-in-yank)
-  (add-hook 'before-save-hook #'my/warn-crlf-before-save)
-  (add-hook 'before-save-hook #'my/force-unix-eol-on-save)
+  (add-hook 'before-save-hook #'my/confirm-strip-crlf-on-save)
   )
 
 (leaf *IME
@@ -68,7 +82,7 @@
             (lambda() (set-cursor-color "blue")))
   (add-hook 'input-method-inactivate-hook
             (lambda() (set-cursor-color "cyan")))
-  (setq w-32-ime-buffer-switch-p t)
+  (setq w32-ime-buffer-switch-p t)
   )
 
 (leaf *SHELL

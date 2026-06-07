@@ -1,3 +1,4 @@
+;;; 01_setup.el --- 基本設定 -*- lexical-binding: t; -*-
 (leaf no-littering
   :ensure t
   :require t
@@ -29,8 +30,7 @@
   (advice-add 'do-auto-save :around #'my/silent-function)
 )
 
-(leaf transient
-  :ensure t)
+;; transient は 06_magit.el で :ensure + 履歴ファイル設定済み
 
 (leaf whitespace
   :blackout (whitespace-mode global-whitespace-mode)
@@ -177,8 +177,7 @@
           'executable-make-buffer-file-executable-if-script-p)
 
                                         ; 前回編集していたとこの保存
-(load "saveplace")
-(setq-default save-place t)
+(save-place-mode 1)
 
                                         ; 改行も含めて\C-kする。
 (setq kill-whole-line t)
@@ -244,12 +243,12 @@
 
 ;;;;;;;;;;;;;;;;; OS毎のlisp ;;;;;;;;;;;;;;;;;
                                         ; OS毎の設定
-(setq darwin-p        (eq system-type 'darwin)
-      windows-nt-p    (eq system-type 'windows-nt)
-      linux-p         (eq system-type 'gnu/linux)
-      cygwin-p        (eq system-type 'cygwin)
-      berkeley-unix-p (eq system-type 'berkeley-unix-p)
-      nt-p            (eq system-type 'windows-nt))
+(defconst darwin-p        (eq system-type 'darwin))
+(defconst windows-nt-p    (eq system-type 'windows-nt))
+(defconst linux-p         (eq system-type 'gnu/linux))
+(defconst cygwin-p        (eq system-type 'cygwin))
+(defconst berkeley-unix-p (eq system-type 'berkeley-unix))
+(defconst nt-p            (eq system-type 'windows-nt))
 
 ;; (when darwin-p
 ;;   (load "~/.emacs.d/unix.el"))
@@ -267,9 +266,8 @@
 
 (put 'downcase-region 'disabled nil)
 
-;; ;; font-lock をロード(色付けを行う)
-(load-library "font-lock")
-;; ;;fot-qarningなし
+;; font-lock は自動ロードされるため明示ロードは不要
+;; フォント関連の警告を抑制
 (setq display-warning-suppressed-classes '(font))
 
 (when (fboundp 'mac-input-source)
@@ -300,5 +298,5 @@
 
 (add-hook 'emacs-startup-hook #'my/startup-screen)
 
-(provide '01_setup.el)
+(provide '01_setup)
 ;;; 01_setup.el ends here

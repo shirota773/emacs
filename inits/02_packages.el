@@ -1,3 +1,4 @@
+;;; 02_packages.el --- 各種パッケージ設定 -*- lexical-binding: t; -*-
 (leaf windmove
   :ensure t
   ;; 矢印でwindow移動
@@ -43,19 +44,12 @@
   ("M-g l" . avy-goto-line)
   ("M-g w" . avy-goto-word-1)
   ("M-g r" . avy-mark-region)
+  ("M-s j" . avy-goto-char-timer)
   )
 
 (leaf web-mode
   :ensure t
-  :defun
-  web-mode-map
-  :config
-  (defun web-mode-hook ()
-    "Hooks for Web mode."
-    (setq time-stamp-line-limit -200)
-    (if (not (memq 'time-stamp write-file-functions))
-        (setq write-file-functions
-              (cons 'time-stamp write-file-functions))))
+  :defun web-mode-map
   :mode "\\.html"  "\\.json" "\\.js" "\\.php" "\\.css"
   :custom ((web-mode-markup-indent-offset . 2)
            (web-mode-css-indent-offset . 2)
@@ -68,7 +62,6 @@
          ("C-c a" . web-mode-element-beginning)
          ("C-c e" . web-mode-element-end)
          ("C-c i" . web-mode-element-insert)))
-  :hydra
   :config
   (with-eval-after-load 'web-mode
     (require 'smartrep)
@@ -118,9 +111,10 @@
 (leaf crux
   :ensure t
   :config
+  ;; M-o は 02_vertico.el で embark-act に割り当てるためここでは外す
+  ;; (crux-smart-open-line は 94_keybinds.el の C-@ に割り当て済み)
   :bind (("C-a" . crux-move-beginning-of-line)
          ("<home>" . crux-move-beginning-of-line)
-         ("M-o" . crux-smart-open-line)
          ("M-O" . crux-smart-open-line-above)
          ("<f11>" . crux-transpose-windows))
   )
@@ -227,7 +221,6 @@
   :ensure t
   :blackout " Ys"
   ;; :require yasnippet-config
-  :load-path "~/.emacs.d/elpa/yasnippet"
   :config
   (setq yas-snippet-dirs
         '("~/.emacs.d/snippets/mysnippets"
@@ -467,7 +460,9 @@
 (leaf grep-a-lot
   :ensure t
   :config
-  (grep-a-lot-advise igrep))
+  ;; igrep を有効化したときだけ advise する (現状 igrep はコメントアウト済み)
+  (with-eval-after-load 'igrep
+    (grep-a-lot-advise igrep)))
 ;; コマンド
 ;; grep-a-lot-restart-context現在のgrepバッファを開くM-g =
 ;; grep-a-lot-goto-nextgrepバッファを開くM-g ]

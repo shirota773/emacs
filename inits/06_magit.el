@@ -1,3 +1,4 @@
+;;; 06_magit.el --- Magit 設定 -*- lexical-binding: t; -*-
 (leaf magit
   :ensure t
   :bind (("C-x g" . magit-status)

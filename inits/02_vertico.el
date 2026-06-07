@@ -8,12 +8,11 @@
 ;; =============================================================================
 ;; 1. Global Keybindings
 ;; =============================================================================
+;; C-s は下の leaf swiper、M-x は既定 (execute-extended-command) のため省略
 (global-set-key (kbd "C-r") #'my/tabspaces-switch-or-recentf)
-(global-set-key (kbd "C-s") 'swiper)
 (global-set-key (kbd "M-s g") 'consult-grep)
 (global-set-key (kbd "M-s r") 'consult-ripgrep)
 (global-set-key (kbd "M-s i") 'consult-imenu)
-(global-set-key (kbd "M-x") 'execute-extended-command)
 (global-set-key (kbd "M-o") 'embark-act)
 
 ;; Swiper (Minimal config)

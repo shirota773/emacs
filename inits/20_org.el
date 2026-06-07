@@ -1,4 +1,4 @@
-;;; 20_org.el --- Minimalist Org-mode Configuration
+;;; 20_org.el --- Minimalist Org-mode Configuration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 ;; This file contains the bare essentials for viewing and light editing

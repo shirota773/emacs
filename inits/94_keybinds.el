@@ -1,3 +1,4 @@
+;;; 94_keybinds.el --- グローバルキーバインド -*- lexical-binding: t; -*-
 ;; (require 'bind-key)
 (leaf bind-key
   :ensure t)

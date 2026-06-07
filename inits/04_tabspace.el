@@ -1,3 +1,4 @@
+;;; 04_tabspace.el --- tab-bar / tabspaces 設定 -*- lexical-binding: t; -*-
 (add-to-list 'load-path (expand-file-name "inits/my-utils" user-emacs-directory))
 (require 'tabspace-util)
 

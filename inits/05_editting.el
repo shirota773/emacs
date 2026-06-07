@@ -25,8 +25,10 @@
     "Quit puni hydra and pass the pressed key to Emacs."
     (interactive)
     (hydra-keyboard-quit)
+    ;; this-command-keys は ASCII 入力時に文字列を返し、修飾ビット (Meta/Control)
+    ;; が再注入時に化けて「Ctrl 押しっぱなし」状態を招く。ベクタ版で回避する。
     (setq unread-command-events
-          (append (listify-key-sequence (this-command-keys))
+          (append (listify-key-sequence (this-command-keys-vector))
                   unread-command-events)))
   :config
   (puni-global-mode 1)
@@ -97,7 +99,7 @@ puni-slurp
    ("f" puni-slurp-forward)
    ("b" puni-slurp-backward)
    ("F" puni-barf-forward)
-   ("B" puni-barf-forward)
+   ("B" puni-barf-backward)
    ("q" nil ))
   )
 
@@ -110,9 +112,7 @@ puni-slurp
 ;; 2. Navigation & Search Enhancement
 ;; =============================================================================
 
-(leaf avy
-  :ensure t
-  :bind (("M-s j" . avy-goto-char-timer)))
+;; avy 本体と M-s j バインドは 02_packages.el に統合済み
 
 (leaf symbol-overlay
   :ensure t
