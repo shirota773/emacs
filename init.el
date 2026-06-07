@@ -97,5 +97,7 @@
 
 (put 'narrow-to-region 'disabled nil)
 (put 'narrow-to-page 'disabled nil)
-(setq custom-file "~/.emacs.d/custom-set-variables.el")
+;; custom-file は読み込まず、Customize の保存も破棄する (= ファイルを生成しない)。
+;; faces は各 leaf の :custom-face が起動時に直接適用するため実害なし。
+(setq custom-file null-device)
 
