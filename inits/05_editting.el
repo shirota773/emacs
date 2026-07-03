@@ -21,6 +21,20 @@
     (set-mark-command nil)
     (hydra-puni/body))
 
+  (defvar-keymap my/puni-region-map
+    :doc "選択中だけ有効になる Puni の一時キーマップ。"
+    "e" #'expreg-expand
+    "f" #'puni-forward-sexp
+    "b" #'puni-backward-sexp
+    "r" #'exchange-point-and-mark)
+
+  (defun my/puni-region-selection-start ()
+    "範囲選択を開始し、選択中だけ `my/puni-region-map' を有効にする。"
+    (interactive)
+    (set-mark-command nil)
+    (set-transient-map my/puni-region-map
+                       (lambda () (region-active-p))))
+
   (defun my/hydra-puni-quit-and-pass-key ()
     "Quit puni hydra and pass the pressed key to Emacs."
     (interactive)
@@ -40,7 +54,7 @@
       :repeat t
       "h" #'puni-beginning-of-sexp
       "l" #'puni-end-of-sexp))
-  :bind (("C-SPC" . my/puni-selection-start)
+  :bind (("C-SPC" . my/puni-region-selection-start)
          ("C-b" . hydra-puni/body)
          ("M-s h" . puni-beginning-of-sexp)
          ("M-s l" . puni-end-of-sexp))
