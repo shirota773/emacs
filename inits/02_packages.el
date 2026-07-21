@@ -1,6 +1,6 @@
 ;;; 02_packages.el --- 各種パッケージ設定 -*- lexical-binding: t; -*-
 (leaf windmove
-  :ensure t
+  :tag "builtin"
   ;; 矢印でwindow移動
   ;; (setq windmove-wrap-around nil)
   ;; (windmove-default-keybindings)
@@ -47,10 +47,11 @@
   ("M-s j" . avy-goto-char-timer)
   )
 
+;; js/json/css は組み込みモード (treesit 移行は 30_test-new.el を参照)
 (leaf web-mode
   :ensure t
   :defun web-mode-map
-  :mode "\\.html"  "\\.json" "\\.js" "\\.php" "\\.css"
+  :mode "\\.html?\\'" "\\.php\\'"
   :custom ((web-mode-markup-indent-offset . 2)
            (web-mode-css-indent-offset . 2)
            (web-mode-code-indent-offset . 2)
@@ -131,11 +132,6 @@
           ("C-t" . isearch-toggle-regexp)))
   :setq ((vr/engine . 'python)))
 
-(leaf key-chord
-  :ensure t
-  :custom (key-chord-two-keys-delay . 0.06)
-  )
-
 (leaf which-key
   :ensure t
   :blackout t
@@ -151,17 +147,13 @@
   :config
   (beacon-mode 1))
 
-(leaf fill-column-indicator
-  :ensure t
-  :hook
-  ((markdown-mode
-    git-commit-mode) . fci-mode))
+;; fill-column 位置の縦線 (fci-mode は廃止された古いパッケージなので組み込みで代替)
+(leaf display-fill-column-indicator
+  :tag "builtin"
+  :hook ((markdown-mode-hook
+          git-commit-mode-hook) . display-fill-column-indicator-mode))
 
 (leaf minor-mode-hack              ;;;マイナーモード衝突を解決する
-  :ensure t)
-
-
-(leaf smart-tab
   :ensure t)
 
 ;; モードラインの整理 (blackout)
@@ -169,31 +161,6 @@
 (leaf abbrev :blackout t)
 (leaf paredit :ensure t :blackout " Pe")
 
-
-(leaf *esup
-    :defun (esup-init-loader)
-    :config
-    (leaf esup :ensure t)
-    (leaf noflet
-      :ensure t
-      :config
-      (defun esup-init-loader ()
-        (interactive)
-        (let ((files)
-              (esup-user-init-file "/tmp/esup-init.el"))
-          (noflet ((load (file &rest _) (push (locate-library file) files)))
-                  (init-loader-load "~/.emacs.d/inits/"))
-    (with-current-buffer (find-file-noselect esup-user-init-file)
-      (erase-buffer)
-      (dolist (file (reverse files))
-        (insert-file-contents file)
-        (goto-char (point-max)))
-      (save-buffer))
-    (esup)))))
-
-(leaf color-moccur
-  :ensure t
-  :custom (moccur-split-word . t))
 
 (leaf rainbow-delimiters
   :ensure t
@@ -424,51 +391,18 @@
         '(".recentf"
           ".ido.*"
           ".ipa"))
+  ;; cleanup は全エントリを stat するため、TRAMP のリモートファイルが
+  ;; 履歴にあると終了時にハングする。cleanup 自体を行わない。
   (setq recentf-auto-cleanup 'never)
-  (add-hook 'kill-emacs-hook #'recentf-cleanup)
   (recentf-mode 1))
 
-;; (recentf-load-list)
-
-
-(leaf windata
-  ;; (setq helm-windata '(frame bottom 0.4 nil))
-  ;; (defun my/helm-display-buffer (buffer)
-  ;;   (apply 'windata-display-buffer buffer helm-windata))
-  ;; (setq helm-display-function 'my/helm-display-buffer)
-  :config
-  (defadvice sdic-other-window (around sdic-other-normalize activate)
-    "sdic のバッファ移動を普通にする。"
-    (other-window 1))
-  (defadvice sdic-close-window (around sdic-close-normalize activate)
-    "sdic のバッファクローズを普通にする。"
-    (bury-buffer sdic-buffer-name)))
-
-
-;; (leaf igrep
-;;   ;; lgrepに0u8オプションをつけると出力がUTF-8になる
-;;   :ensure t
-;;   ;; :require t
-;;   :defun igrep igrep-define igrep-find-define
-;;   :config
-;;   (setq grep-save-buffers nil)
-;;   ;; (igrep-define lgrep (igrep-use-zgrep nil)(igre-regex-option "-n -0u8"))
-;;   ;; (igrep-find-define igrep (igrep-use-zgrep nil)(igrep-regex-option "-n -0u8"))
-;;   )
-
-;; 複数*grep*バッファを使う
-(leaf grep-a-lot
+;; grep は consult-grep / consult-ripgrep (M-s g / M-s r) に一本化。
+;; wgrep: grep/embark-export した結果バッファを直接編集して一括置換する。
+;; 使い方: consult-ripgrep → embark-export (C-. E 相当) → e で編集開始 → C-c C-c で適用
+(leaf wgrep
   :ensure t
-  :config
-  ;; igrep を有効化したときだけ advise する (現状 igrep はコメントアウト済み)
-  (with-eval-after-load 'igrep
-    (grep-a-lot-advise igrep)))
-;; コマンド
-;; grep-a-lot-restart-context現在のgrepバッファを開くM-g =
-;; grep-a-lot-goto-nextgrepバッファを開くM-g ]
-;; grep-a-lot-goto-prevgrepバッファを開くM-g [
-;; grep-a-lot-pop-stack現在のgrepバッファを削除するM-g -
-;; grep-a-lot-clear-stack全grepバッファを削除するM-g _
+  :custom
+  (wgrep-auto-save-buffer . t))
 
 (leaf open-junk-file
   :ensure t
@@ -500,4 +434,6 @@
   :ensure t)
 
 (require 'my-defuns)
+
+(provide '02_packages)
 

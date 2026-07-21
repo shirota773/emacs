@@ -53,15 +53,22 @@
   (whitespace-space    . '((t (:background unspecified :foreground "gray40" :underline nil :inherit nil))))
   )
 
-;;bookmark C-x r mでブックマーク、C-x r l でブックマークを開く
+;;bookmark C-x r mでブックマーク、C-x r l で一覧、C-x r b でジャンプ(consult-bookmark)
+;; dired バッファで C-x r m するとディレクトリをブックマークできる。
+;; ブックマークは consult-buffer (C-;) の m 絞り込みと consult-dir (C-x C-d) にも出る。
 (setq bookmark-save-flag 1)
-(progn
-  (setq bookmark-sort-flag nil)
-  (defun bookmark-arrange-latest-top ()
-    (let ((latest (bookmark-get-bookmark bookmark)))
-      (setq bookmark-alist (cons latest (delq latest bookmark-alist))))
-    (bookmark-save))
-  (add-hook 'bookmark-after-jump-hook 'bookmark-arrange-latest-top))
+(setq bookmark-sort-flag nil)
+;; ジャンプしたブックマークをリスト先頭へ (最近使った順に並ぶ)
+(defun my/bookmark-arrange-latest-top (bookmark-name &rest _)
+  "ジャンプした BOOKMARK-NAME を `bookmark-alist' の先頭へ移動して保存する。"
+  (let ((latest (bookmark-get-bookmark bookmark-name)))
+    (setq bookmark-alist (cons latest (delq latest bookmark-alist))))
+  (bookmark-save))
+(advice-add 'bookmark-jump :after #'my/bookmark-arrange-latest-top)
+;; 一覧 (C-x r l) も j/k で移動できるように
+(with-eval-after-load 'bookmark
+  (define-key bookmark-bmenu-mode-map (kbd "j") #'next-line)
+  (define-key bookmark-bmenu-mode-map (kbd "k") #'previous-line))
 
 (if (version<= "26.0.50" emacs-version)
     (leaf display-line-numbers
@@ -71,12 +78,10 @@
       (line-number . '((t (:foreground "DarkOliveGreen" :background "#202020"))))
       (line-number-current-line . '((t (:foreground "gold"))))))
 
-;;; 一行が72字以上になった時には自動改行 する
 (leaf *setup
   :config
   (electric-pair-mode 1)                ;補完
   (setq fill-column 72)
-  (setq-default auto-fill-mode t)
   (setq-default line-spacing 0.1)         ; 行間設定
   ;;基本インデント量4
   (setq-default c-basic-offset 4
@@ -100,13 +105,10 @@
   )
 
 
-;;emacsclient
-(when (eq window-system 'w32)
-  (when (require 'server nil t)
-    (server-start)))
-
-(defun iconify-emacs-when-server-is-done ()
-  (unless server-clients (iconify-frame)))
+;;emacsclient / with-editor (magit の commit にも必要)
+(require 'server)
+(unless (server-running-p)
+  (server-start))
 
 (setq visible-bell t)                   ;;; 警告音の代わりに画面フラッシュ
 (setq ring-bell-function 'ignore)       ;;; ビープ音を消す
@@ -124,14 +126,13 @@
 
 (set-scroll-bar-mode 'nil)
 (setq-default case-fold-search t)
-(setq-default completion-ignore-case t)
-(setq-default read-file-name-completion-ignore-case t)
-(setq-default read-buffer-completion-ignore-case t)
+;; コード補完 (corfu) は大文字小文字を区別、ファイル名/バッファ名は無視
+(setq completion-ignore-case nil)
+(setq read-file-name-completion-ignore-case t)
+(setq read-buffer-completion-ignore-case t)
 (setq-default dabbrev-case-fold-search t)
 (setq-default dabbrev-case-replace nil)
 (setq-default dabbrev-case-distinction nil)
-(setq completion-ignore-case nil)
-(setq read-file-name-completion-ignore-case t)
 
 ;; テンプレートの自動挿入
 (auto-insert-mode)
@@ -185,31 +186,6 @@
 ;; region内の置換を行う
 (setq transient-mark-mode t)
 
-;; regionの文字数をカウント
-(autoload 'count-chars-region "wc" nil t)
-
-;; elの場所を探す
-(autoload 'where-is-in "where" "where *.el" t)
-
-;; regionの全角数字を半角数字に
-(autoload 'replace-zen-to-ascii-region "replace-zen-to-ascii-region" nil t)
-
-;; regionの全角数字を半角数字に
-(autoload 'eperiodic "eperiodic" nil t)
-
-;; yen
-(autoload 'yen-region "yen" "yen-" t nil)
-
-;; Riece
-(autoload 'riece "riece" "Start Riece" t)
-
-;; Color palette
-(autoload 'palette "palette" "Palette" t)
-                                        ;色見本
-(autoload 'list-hexadecimal-colors-display "color-selection"
-  "Display hexadecimal color codes, and show what they look like." t)
-
-
 ;; 日本のカレンダー
 (leaf calendar
   :custom
@@ -229,17 +205,7 @@
   (today-invisible-calendar-hook . calendar-mark-weekend)
   )
 
-(leaf text-translator
-  :config
-  :bind (("C-x M-t" . text-translator-all-by-auto-selection))
-  )
-
-
-;; 自動選択に使用する関数を設定
-(setq text-translator-auto-selection-func
-      'text-translator-translate-by-auto-selection-enja)
-;; グローバルキーを設定
-(global-set-key "\C-xt" 'text-translator-translate-by-auto-selection)
+;; 翻訳は go-translate (30_test-new.el) に移行
 
 ;;;;;;;;;;;;;;;;; OS毎のlisp ;;;;;;;;;;;;;;;;;
                                         ; OS毎の設定
@@ -256,9 +222,6 @@
 ;;   (load "~/.emacs.d/unix.el"))
 (when windows-nt-p
   (load "~/.emacs.d/inits/win.el"))
-
-(setq max-specpdl-size 60000000)
-(setq max-lisp-eval-depth 10000000)
 
 (remove-hook
  'kill-buffer-query-functions
@@ -289,7 +252,7 @@
 (defun my/startup-screen ()
   "Display the tabspace session list at startup."
   (interactive)
-  (require 'tabspace-util)
+  (require 'tabspace-list-ui)
   (my/tabspace-list-saved-sessions)
   ;; Ensure we are on the session list buffer
   (when (get-buffer "*Tab Sessions*")

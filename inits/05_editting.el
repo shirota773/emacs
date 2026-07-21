@@ -47,17 +47,8 @@
   :config
   (puni-global-mode 1)
   (add-hook 'minibuffer-setup-hook #'hydra-keyboard-quit)
-  (leaf *puni-repeat
-    :after repeat
-    :config
-    (defvar-keymap puni-repeat-map
-      :repeat t
-      "h" #'puni-beginning-of-sexp
-      "l" #'puni-end-of-sexp))
   :bind (("C-SPC" . my/puni-region-selection-start)
-         ("C-b" . hydra-puni/body)
-         ("M-s h" . puni-beginning-of-sexp)
-         ("M-s l" . puni-end-of-sexp))
+         ("C-b" . hydra-puni/body))
   :hydra
   (hydra-puni
    (:color pink :hint nil :foreign-keys run)
@@ -153,3 +144,5 @@ puni-slurp
 (leaf repeat
   :tag "builtin"
   :global-minor-mode repeat-mode)
+
+(provide '05_editting)

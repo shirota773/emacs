@@ -1,9 +1,10 @@
 (prog1 "prepare leaf"
   (prog1 "package"
+    ;; orgmode.org/elpa は 2022 年に閉鎖済み (org は GNU ELPA から入る)
     (custom-set-variables
-     '(package-archives '(("org"   . "https://orgmode.org/elpa/")
-                          ("melpa" . "https://melpa.org/packages/")
-                          ("gnu"   . "https://elpa.gnu.org/packages/"))))
+     '(package-archives '(("melpa"  . "https://melpa.org/packages/")
+                          ("gnu"    . "https://elpa.gnu.org/packages/")
+                          ("nongnu" . "https://elpa.nongnu.org/nongnu/"))))
     (package-initialize))
 
   (prog1 "leaf"
@@ -73,7 +74,7 @@
 (leaf init-loader
   :ensure t
   :custom
-  (init-loader--show-log-after-init . 'error-only)
+  (init-loader-show-log-after-init . 'error-only)
   :config
   (init-loader-load "~/.emacs.d/inits")
   ;; local
@@ -100,4 +101,3 @@
 ;; custom-file は読み込まず、Customize の保存も破棄する (= ファイルを生成しない)。
 ;; faces は各 leaf の :custom-face が起動時に直接適用するため実害なし。
 (setq custom-file null-device)
-

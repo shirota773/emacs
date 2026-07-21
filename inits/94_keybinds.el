@@ -21,15 +21,6 @@
               (other-window 1)
               (switch-to-prev-buffer)
               (other-window 1)))
-(bind-key* (kbd "C-x 5 5")
-           #'(lambda () (interactive)
-              (make-frame-command)
-              (win:other-frame)
-              (list-buffers)))
-(bind-key* (kbd "C-x C-b")
-           #'(lambda () (interactive)
-              (list-buffers)
-              (other-window 1)))
 (bind-keys*
  ("<zenkaku-hankaku>" . toggle-input-method)
  ("C-0"     . delete-window)
@@ -39,7 +30,6 @@
  ("<f12>"   . shell)
  ("C-x C-q" . view-mode)
  ("C-x k"   . kill-current-buffer)
- ("M-s o"   . occur-by-moccur)
  ("C-c c"   . org-capture)
  ("C-c a"   . org-agenda)
  ("C-o"     . other-window)
@@ -96,9 +86,6 @@
     :default kill-line
     :eolp    crux-kill-whole-line)
 
-  (mykie:global-set-key "C-c 6"
-    :default win-resume-menu
-    :C-u win-resume-local)
   (mykie:global-set-key "C-w"
     :default move-to-mark
     :region kill-region)
@@ -117,7 +104,6 @@
     :region forward-word)
   )
 
-;; (setq-default sp-highlight-wrap-overlay nil)
-(setq-default sp-highlight-pair-overlay nil)
+(provide '94_keybinds)
 
 
