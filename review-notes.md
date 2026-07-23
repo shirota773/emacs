@@ -115,6 +115,13 @@
    claude等TUIの本命候補として、常用キー `C-t` (`my/eat-here`、default-directory
    でlocal/remoteを判定し接続単位バッファを再利用) も最初から割当。
    native Windows非対応のためコマンド側でガード。
+   2026-07-24: **eatはemacs-mac (x86_64/Rosetta) で完全フリーズすることが判明**。
+   -Q最小再現で確認 (0.9.4/master共通、シェル種別・eat-term-name無関係、
+   misttyも同症状、term.el/comintは無事)。スタックはtimer_checkの
+   Lispタイマーがビジーループ (macOSのsampleで採取)。SIGUSR2+子プロセス
+   killで救出可能。eatコマンドにガードを入れ、C-tは `my/term-here`
+   (接続単位shell) に暫定変更。真因候補はRosetta (x86_64 EmacsをM4で実行)。
+   arm64版Emacs (emacs-mac arm64 / emacs-plus) での再検証が根治の見込み。
 
 8. **bufferlo (GNU ELPA 1.2)** — 2026-07-23移行。tabspaces + 自作 tabspace 群の
    置き換え。GUI で実機確認してから判定する項目:

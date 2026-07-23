@@ -57,10 +57,12 @@
              ("j" . next-line)
              ("k" . previous-line)))
 
-;; C-t: local/TRAMPを判定して接続単位のeatを開く。
+;; C-t: local/TRAMPを判定して接続単位のterminalを開く。
+;; eatがemacs-mac/Rosetta環境でフリーズするため、当面はshellベースの
+;; my/term-here (31_terminal-test.el)。eat復活時は my/eat-here に戻す。
 ;; minibufferではvertico-mapのC-t (ディレクトリジャンプ) を優先させるため、
 ;; override (bind-keys*) ではなく通常のglobal-mapに置く。
-(bind-key "C-t" #'my/eat-here)
+(bind-key "C-t" #'my/term-here)
 
 (when darwin-p
    (bind-key (kbd "C-M-o") 'other-window))

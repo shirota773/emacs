@@ -35,9 +35,10 @@
 ;;     Linux/macOS。native Windows Emacsからの利用は今回の実機評価対象。
 ;;   - coterm: 起動時にはglobal `coterm-mode'を有効にする。C-c T xで
 ;;     新規comint bufferへの適用を停止できる。
-;;   - eat: native Windowsでは動作しない (macOS local/TRAMP用の本命候補)。
-;;     常用キーは C-t (`my/eat-here')。fishのdirectory trackingには
-;;     fish側でeatのshell integrationをsourceする必要がある。
+;;   - eat: native Windowsでは動作しない。さらにemacs-mac (x86_64/Rosetta)
+;;     では出力処理タイマーがビジーループしEmacsが完全フリーズするため
+;;     コマンド側でガード中 (2026-07-24、misttyも同症状)。
+;;     C-t は当面 `my/term-here' (接続単位shell)。arm64版Emacsで要再検証。
 ;;
 ;; 採用判定では、見た目より次を優先する:
 ;;   接続成功、再接続、入力遅延、resize、TUI、copy/paste、日本語幅、
@@ -159,6 +160,12 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   (interactive "P")
   (when (eq system-type 'windows-nt)
     (user-error "eatはnative Windows非対応。C-c T g/m/c を使ってください"))
+  ;; emacs-mac (x86_64をRosettaで実行) では eat の出力処理タイマーがビジー
+  ;; ループし Emacs 全体が完全フリーズする (2026-07-24、-Qで再現確認。
+  ;; master版も同症状、mistty も同様、term.el は無事)。真因の切り分け
+  ;; (Rosetta vs emacs-mac) が済むまでガードで起動を止める。
+  (when (boundp 'mac-carbon-version-string)
+    (user-error "eatはこの環境 (emacs-mac) でフリーズします。C-t (shell) か <f12> を使ってください"))
   (my/terminal-test--assert-directory)
   (unless (require 'eat nil t)
     (user-error "eatをloadできません。package install結果を確認してください"))
@@ -176,6 +183,24 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   "現在地でeatを起動する (`my/eat-here'の試験枠向けエイリアス)。"
   (interactive)
   (call-interactively #'my/eat-here))
+
+(defun my/term-here (&optional arg)
+  "現在の`default-directory'でshellを開く。TRAMP bufferならremote shellになる。
+接続単位のbuffer名 (*shell:local* など) で生存プロセスのbufferを再利用する。
+C-u (ARG) 付きで同じ接続に新しいbufferを追加する。
+eatがこの環境 (emacs-mac/Rosetta) でフリーズするため、当面の常用 (C-t)。
+TUIが必要なら C-c T c で coterm を有効化してから使う。"
+  (interactive "P")
+  (my/terminal-test--assert-directory)
+  (let* ((buf-name (format "*shell:%s*" (my/terminal-test--scope-name)))
+         (existing (get-buffer buf-name)))
+    (if (and existing (get-buffer-process existing) (not arg))
+        (pop-to-buffer existing)
+      (let ((explicit-shell-file-name
+             (if (my/terminal-test--remote-p)
+                 my/terminal-test-remote-shell
+               explicit-shell-file-name)))
+        (shell (if arg (generate-new-buffer-name buf-name) buf-name))))))
 
 (defun my/terminal-test--environment-summary ()
   "現在の比較環境を文字列で返す。"
@@ -244,14 +269,15 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
       (princ "  C-c T g  Ghostelを現在地で起動\n")
       (princ "  C-c T m  新しいMisTTYを現在地で起動\n")
       (princ "  C-c T c  shell + cotermを接続単位で起動/再表示\n")
-      (princ "  C-c T e  eatを接続単位で起動/再表示 (常用: C-t)\n")
+      (princ "  C-c T e  eatを接続単位で起動/再表示 (emacs-macではフリーズガード中)\n")
       (princ "  C-c T r  編集可能な比較表を作成\n")
       (princ "  C-c T x  global coterm-modeを停止\n")
       (princ "  C-c T ?  このHelpを表示\n\n")
       (princ "既存の <f12> は従来どおりM-x shellです。\n")
       (princ "GhostelのWindows->TRAMPは動的resize未対応です。\n")
       (princ "MisTTYのnative Windows利用は公式確認外なので、失敗も評価結果です。\n")
-      (princ "eatはnative Windows非対応です (macOS local/TRAMP用)。\n"))))
+      (princ "eatはnative Windows非対応、emacs-mac/Rosettaではフリーズのためガード中です。\n")
+      (princ "常用のC-tは接続単位shell (my/term-here) です。\n"))))
 
 (defvar-keymap my/terminal-test-prefix-map
   :doc "Terminal backend comparison commands."
