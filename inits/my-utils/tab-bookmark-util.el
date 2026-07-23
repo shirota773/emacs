@@ -1,28 +1,35 @@
-;;; tabspace-bookmark-util.el --- tabspace/layout スコープ付き bookmark -*- lexical-binding: t; -*-
+;;; tab-bookmark-util.el --- タブ/レイアウトスコープ付き bookmark -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 ;; 標準の bookmark はグローバルに1つの alist だが、`bookmark-set' した時点の
-;; 「どのタブ (tabspace)・どのレイアウトか」を bookmark の props に自動記録し、
+;; 「どのタブ・どのレイアウトか」を bookmark の props に自動記録し、
 ;; 現在のタブ/レイアウトに合う bookmark だけからジャンプできるようにする。
 ;;
 ;; - 保存先は従来どおり `bookmark-default-file' 1つ (グローバル)。
 ;;   C-x r b (consult-bookmark) は全件対象のまま変わらない。ローカルな
 ;;   「見え方」を `my/bookmark-jump-local' で足すだけなので、既存の
 ;;   bookmark 資産はそのまま「どのタブにも属さないグローバル」として残る。
-;; - 「現在のレイアウト」は my/tabspace-save-layout / load-layout した直近の
-;;   名前 (tabspace-util.el の `my/tabspace--active-layout' で追跡)。
-;;   起動直後はどのタブも nil (= レイアウト未確定) 扱い。
+;;   props のキー名 (tabspace / tabspace-layout) も旧実装から変えない。
+;; - 「現在のレイアウト」は bufferlo が現タブに紐付けているタブ bookmark 名
+;;   (タブ alist の `bufferlo-bookmark-tab-name')。命名規約「タブ名/レイアウト名」。
+;;   タブ bookmark 未紐付けのタブでは nil (= レイアウト未確定) 扱い。
+;;   旧実装の my/tabspace--active-layout ハッシュ追跡からの付け替え (2026-07-23)。
 
 ;;; Code:
 
 (require 'bookmark)
 (require 'tab-bar)
 (require 'seq)
-(require 'tabspace-util)
 
 (defun my/bookmark--current-tab-name ()
   "現在のタブ名を返す。"
   (alist-get 'name (tab-bar--current-tab)))
+
+(defun my/tab-bookmark--active-name ()
+  "現タブでアクティブな bufferlo タブ bookmark 名を返す。無ければ nil。
+タブ alist の `bufferlo-bookmark-tab-name' キーは bufferlo の内部仕様のため、
+参照はこの関数1箇所に隔離する。"
+  (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab)))
 
 ;; ---------------------------------------------------------------------------
 ;; bookmark-set 時にタブ/レイアウトを自動記録
@@ -33,7 +40,7 @@
   (let ((tab (my/bookmark--current-tab-name)))
     (when (and bookmark-current-bookmark tab)
       (bookmark-prop-set bookmark-current-bookmark 'tabspace tab)
-      (let ((layout (my/tabspace-current-layout)))
+      (let ((layout (my/tab-bookmark--active-name)))
         (when layout
           (bookmark-prop-set bookmark-current-bookmark
                              'tabspace-layout layout))))))
@@ -47,7 +54,7 @@
   "現タブに紐付く bookmark レコードのリストを返す。
 現レイアウトに紐付くものを先頭に並べる。LAYOUT-ONLY なら現レイアウト分のみ。"
   (let* ((tab (my/bookmark--current-tab-name))
-         (layout (my/tabspace-current-layout))
+         (layout (my/tab-bookmark--active-name))
          (tab-bms (seq-filter
                    (lambda (bm) (equal (bookmark-prop-get bm 'tabspace) tab))
                    bookmark-alist))
@@ -73,7 +80,7 @@ C-u 付き (LAYOUT-ONLY) で現レイアウトに紐付いたものだけに絞�
     (unless names
       (user-error "%sに紐付いた bookmark がありません (C-x r m で登録)"
                   (if layout-only
-                      (format "レイアウト '%s' " (or (my/tabspace-current-layout)
+                      (format "レイアウト '%s' " (or (my/tab-bookmark--active-name)
                                                      "(未確定)"))
                     (format "タブ '%s' " (my/bookmark--current-tab-name)))))
     (let* ((annotate
@@ -97,5 +104,5 @@ C-u 付き (LAYOUT-ONLY) で現レイアウトに紐付いたものだけに絞�
   (interactive)
   (my/bookmark-jump-local t))
 
-(provide 'tabspace-bookmark-util)
-;;; tabspace-bookmark-util.el ends here
+(provide 'tab-bookmark-util)
+;;; tab-bookmark-util.el ends here

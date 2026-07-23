@@ -115,6 +115,17 @@
    でlocal/remoteを判定し接続単位バッファを再利用) も最初から割当。
    native Windows非対応のためコマンド側でガード。
 
+8. **bufferlo (GNU ELPA 1.2)** — 2026-07-23移行。tabspaces + 自作 tabspace 群の
+   置き換え。GUI で実機確認してから判定する項目:
+   - タブ bookmark 運用: hydra `s`/`C-s`/`d` (保存/読込/削除)、`S` 一括保存、
+     閉じ時 when-bookmarked 自動保存、起動時 'all 復元、600秒自動保存
+   - `C-;` の Local Buffers ソース最優先表示、`C-r` トグル、`C-f` hydra 新構成
+   - レイアウト切替 (同一タブで別名 bookmark をロード) の使用感
+   - bufferlo-anywhere-mode は未使用 (素の C-x b はフィルタされない)。
+     厳密なフィルタが欲しくなったら試す
+   - 旧データ: var/tabspace-sessions/ と var/tabspaces-session.eld は
+     動作確認後に手動削除してよい (テストデータのみ)
+
 ## 8. 未対応・保留リスト(次回レビューの候補)
 
 - [x] 別ディレクトリ問題の本命対応: **bookmark 運用で整備 (2026-07-04)**。
@@ -134,9 +145,17 @@
       既存 bookmark はどのタブにも属さないグローバル扱い。
 - [x] `M-.` の競合を解消 **(2026-07-14)**。`xref-find-definitions` へ戻し、
       xrefの定義・参照候補表示を `consult-xref` へ統一。
-- [ ] tabspaces 組み込みセッション自動復元 (tabspaces-session-auto-restore t) と
-      自作セッション機構の二重管理。自作に寄せるなら builtin を切る(挙動変更に
-      なるため今回は見送り)
+- [x] tabspaces 組み込みセッション自動復元と自作セッション機構の二重管理
+      **(2026-07-23 解消)**。tabspaces と自作セッション/レイアウト/winner 同期
+      (tabspace-util.el)・ダッシュボード UI (tabspace-list-ui.el) を全撤去し、
+      bufferlo のタブ bookmark に一本化 (`refactor/tabspaces-to-bufferlo`)。
+      - セッション/レイアウト = タブ bookmark。レイアウトは
+        「タブ名/レイアウト名」(例 work/dev) の別名保存で表現する
+      - winner タブ同期 → 標準 tab-bar-history-mode (copy-tree の vector 共有
+        バグも同時解消)。日本語タブ名のセッションファイル衝突も消滅
+      - 起動画面 → bookmark-bmenu-list (B-Tab 行を RET で復元)
+      - dir-util は tab-dir-util.el として独立 (var/tab-dirs.eld)、bookmark
+        スコープは tab-bookmark-util.el (アクティブタブ bookmark 名を参照)
 - [ ] custom-file = null-device の副作用: package-selected-packages が保存されず
       package-autoremove / 新マシン一括導入が機能しない
 - [ ] 不要になったパッケージ実体の掃除(key-chord, smart-tab, color-moccur,

@@ -375,6 +375,12 @@ Elispの関数・変数はxref backendで扱えるため、まず追加パッケ
 
 ### 4.10 tabspace・作業環境 — 4.0 / 10
 
+> **2026-07-23 更新**: 改善案A/Bに代わり **bufferlo (GNU ELPA 1.2) への移行を実施済み**
+> (`refactor/tabspaces-to-bufferlo`)。tabspaces・自作session/layout/winner同期・
+> ダッシュボードUI (計約900行) を撤去し、タブbookmarkへ一本化。dir-utilは
+> tab-dir-util.el (専用ストア)、bookmarkスコープはtab-bookmark-util.elとして存続。
+> 以下の記述は移行前の評価。GUI実機確認は review-notes.md §7 を参照。
+
 #### 現在実装されている概念
 
 - tabspacesによるtabごとのbuffer絞り込み
@@ -475,12 +481,14 @@ default stateとlast-used stateを分け、bookmarkを復元基盤として使�
 
 ### P1: Window・tabspaceの予測可能性を上げる
 
-- [ ] `tabspaces-session-include` の削除または現行APIへの置換
-- [ ] 標準sessionと独自sessionのどちらを残すか決定する
-- [ ] `tab-bar-history-mode` を試し、独自Winner同期と比較する
+- [x] `tabspaces-session-include` の削除または現行APIへの置換(2026-07-23 tabspaces撤去で解消)
+- [x] 標準sessionと独自sessionのどちらを残すか決定する(2026-07-23 bufferloタブbookmarkへ一本化)
+- [x] `tab-bar-history-mode` を試し、独自Winner同期と比較する(2026-07-23 採用。独自同期は
+      copy-treeのvector共有バグ持ちだったため削除)
 - [ ] `display-buffer-base-action` を外して回帰を確認する
 - [ ] Help / xref / compilation / terminalの表示規則を個別定義する
-- [ ] tab名を永続データIDに使う設計を見直す
+- [x] tab名を永続データIDに使う設計を見直す(2026-07-23 ほぼ解消。永続IDは標準bookmark名になり
+      日本語名のファイル名衝突も消滅。tab-dirs.eldのタブ名キーのみ残存=軽微)
 
 ### P2: 新しい操作体験を試す
 
@@ -623,7 +631,7 @@ rtk emacs --batch -Q --eval \
 | 1 | MisTTY | TRAMP shellとEmacs編集の融合 | Windowsは公式確認外のため実機判定 |
 | 1 | Ghostel | Windows / TRAMP / TUI | 最も高機能だがWindows対応が新しくresize制限あり |
 | 1 | eat | macOS local / TRAMP / TUI | 2026-07-23導入済み。`C-c T e` + 常用 `C-t` で試用中 |
-| 2 | Activities | tabspace / session / layout | 置換実験推奨。いきなり全面移行しない |
+| 2 | Activities | tabspace / session / layout | 不採用 — 2026-07-23、レイアウトモデル適合の理由でbufferloを採用し移行済み |
 | 3 | Casual Suite | Dired等の操作発見性 | Emacs 30.1更新後に試す |
 | 5 | Breadcrumb | 大規模projectの現在位置表示 | xref復旧後に必要性を判断 |
 
@@ -669,6 +677,7 @@ rtk emacs --batch -Q --eval \
 
 | 日付 | 内容 | 備考 |
 |---|---|---|
+| 2026-07-23 | tabspaces+自作tabspace群をbufferloへ移行 | `refactor/tabspaces-to-bufferlo`。session/layout=タブbookmark一本化、tab-bar-history-mode採用、自作UI 33KB削除、tab-bar-show=t |
 | 2026-07-23 | eatを比較枠(C-c T e)と常用キーC-tに追加 | `feat/eat-terminal`、macOS local/TRAMP本命候補 |
 | 2026-07-14 | Windows/TRAMP優先でGhostel・MisTTY・shell+cotermの比較設定を追加 | `31_terminal-test.el`、仕事PC実機採点待ち |
 | 2026-07-14 | init-loaderの公開変数名を修正し、P0全項目のフルロードを再検証 | P0完了・GUI実機確認待ち |

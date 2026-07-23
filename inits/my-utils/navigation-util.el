@@ -1,6 +1,6 @@
 ;;; navigation-util.el --- Navigation utilities -*- lexical-binding: t; -*-
 
-(defvar my/c-r-state 'recentf "State of C-r toggle: 'recentf or 'tabspaces.")
+(defvar my/c-r-state 'recentf "State of C-r toggle: 'recentf or 'local.")
 
 (defun my/minibuffer-exit-run (func &rest args)
   "Delete content, exit minibuffer, and run FUNC with ARGS after 0.05s."
@@ -12,15 +12,15 @@
   "Start interactive `find-file` with default directory set to DIR."
   (let ((default-directory dir)) (call-interactively 'find-file)))
 
-(defun my/tabspaces-switch-or-recentf ()
-  "Toggle between recentf and tabspaces buffer list."
+(defun my/local-buffer-or-recentf ()
+  "Toggle between recentf and tab-local (bufferlo) buffer list."
   (interactive)
   (if (not (minibufferp))
-      (progn (setq my/c-r-state 'tabspaces) (call-interactively 'my/tabspaces-switch-to-buffer))
-    (setq my/c-r-state (if (eq my/c-r-state 'recentf) 'tabspaces 'recentf))
+      (progn (setq my/c-r-state 'local) (call-interactively 'bufferlo-switch-to-buffer))
+    (setq my/c-r-state (if (eq my/c-r-state 'recentf) 'local 'recentf))
     (my/minibuffer-exit-run
      (if (eq my/c-r-state 'recentf) (if (fboundp 'consult-recentf) #'consult-recentf #'consult-buffer)
-       #'my/tabspaces-switch-to-buffer))))
+       #'bufferlo-switch-to-buffer))))
 
 (defun my/vertico-select-directory-from-candidates ()
   "Context-aware directory jump with C-t."

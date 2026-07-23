@@ -250,14 +250,15 @@
 ;; =============================================================================
 
 (defun my/startup-screen ()
-  "Display the tabspace session list at startup."
+  "起動時に bookmark 一覧を表示する。
+B-Tab 行が bufferlo の保存済みタブ (RET で復元)。j/k 移動は上で設定済み。
+タブの自動復元 (bufferlo-bookmarks-load-at-emacs-startup) はこの後の
+window-setup-hook で走る。"
   (interactive)
-  (require 'tabspace-list-ui)
-  (my/tabspace-list-saved-sessions)
-  ;; Ensure we are on the session list buffer
-  (when (get-buffer "*Tab Sessions*")
-    (switch-to-buffer "*Tab Sessions*")
-    (delete-other-windows)))
+  (require 'bookmark)
+  (bookmark-bmenu-list)
+  (switch-to-buffer "*Bookmark List*")
+  (delete-other-windows))
 
 (add-hook 'emacs-startup-hook #'my/startup-screen)
 

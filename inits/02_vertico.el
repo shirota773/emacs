@@ -9,7 +9,7 @@
 ;; 1. Global Keybindings
 ;; =============================================================================
 ;; M-x は既定 (execute-extended-command) のため省略
-(global-set-key (kbd "C-r") #'my/tabspaces-switch-or-recentf)
+(global-set-key (kbd "C-r") #'my/local-buffer-or-recentf)
 (global-set-key (kbd "M-s g") 'consult-grep)
 (global-set-key (kbd "M-s r") 'consult-ripgrep)
 (global-set-key (kbd "M-s i") 'consult-imenu)
@@ -43,7 +43,7 @@
   :bind
   (:vertico-map
    ("C-s" . vertico-next)               ; isearch 風に C-s 連打で次候補へ
-   ("C-r" . my/tabspaces-switch-or-recentf)
+   ("C-r" . my/local-buffer-or-recentf)
    ("C-t" . my/vertico-select-directory-from-candidates)
    ("RET" . vertico-directory-enter)
    ("C-j" . vertico-exit-input)
@@ -71,7 +71,7 @@
          ("C-x r b" . consult-bookmark)))
 
 ;; consult-dir: ディレクトリを起点に find-file を切り替える。
-;; 現タブのプロセス用ディレクトリを最優先候補にする (tabspace-dir-util.el)。
+;; 現タブのプロセス用ディレクトリを最優先候補にする (tab-dir-util.el)。
 (leaf consult-dir
   :ensure t
   :bind (("C-x C-d" . consult-dir)        ; 既定の list-directory を上書き
