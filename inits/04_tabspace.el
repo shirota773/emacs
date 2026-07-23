@@ -9,9 +9,14 @@
 (require 'tab-bookmark-util)
 
 (leaf tab-bar
+  :init
+  ;; 値の形式は Emacs 29 が (PIXELS COLUMNS)、30+ が ((PIXELS) COLUMNS)。
+  ;; 形式を誤ると redisplay 中の幅計算が黙って失敗し、tab-bar-lines が 0 に
+  ;; 戻されてタブバーが一切表示されなくなる (macOS で長年の非表示の真因)。
+  ;; leaf の :custom は値の式を評価できないため setq で分岐する。
+  (setq tab-bar-auto-width-min (if (>= emacs-major-version 30) '((10) 2) '(10 2)))
+  (setq tab-bar-auto-width-max (if (>= emacs-major-version 30) '((100) 10) '(100 10)))
   :custom
-  (tab-bar-auto-width-min . '((10) 2))
-  (tab-bar-auto-width-max . '((100) 10))
   (tab-bar-auto-width . t)
   ;; 1 (2タブ以上で表示) は復元経路で tab-bar-lines の再計算が漏れると
   ;; 非表示のままになる (emacs-mac で確認済み)。常時表示に固定する。

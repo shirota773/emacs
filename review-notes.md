@@ -29,6 +29,7 @@
 | 新規バッファの window 挙動 | display-buffer-alist がほぼ未設定 | popper + 基本ルールを 30_test-new.el に追加 | 試用中 |
 | TRAMP が遅い/不安定 | 設定ゼロ。recentf の kill-emacs cleanup がリモート stat でハング | 30_test-new.el にチューニング一式、recentf cleanup 廃止 | 試用中 |
 | emacs から git が見えない | status ヘッダー削除・magit-git-debug 等 | 撤去 + diff-hl 追加 | 試用中 |
+| macOS でタブバーが表示されない | `tab-bar-auto-width-min/max` に Emacs 30 形式 `((N) M)` を設定していた。29 は `(N M)` 形式のため redisplay 中の幅計算が黙って型エラー → tab-bar-lines が 0 に戻され常に非表示 (emacs-mac は無実、-Q 最小再現で特定) | バージョン分岐の setq に修正 (04_tabspace.el)。**leaf の :custom は値の式を評価できない**(シンボルを変数として nil 設定する)ので式が要る値は :init で setq する | **解決 (2026-07-24)** |
 
 ## 3. swiper vs consult-line の結論(重要・再挑戦しないこと)
 
