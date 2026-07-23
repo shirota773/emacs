@@ -110,6 +110,10 @@
    (`C-c T c`)を同じremote bufferから比較する。`C-c T r`で採点表、
    `C-c T ?`でHelp。Windows仕事PCでの接続・resize・TUI・日本語・終了処理を
    実機採点してから本採用を決める。
+   2026-07-23: eat (NonGNU ELPA 0.9.4) を追加 (`C-c T e`)。macOS local/TRAMP/
+   claude等TUIの本命候補として、常用キー `C-t` (`my/eat-here`、default-directory
+   でlocal/remoteを判定し接続単位バッファを再利用) も最初から割当。
+   native Windows非対応のためコマンド側でガード。
 
 ## 8. 未対応・保留リスト(次回レビューの候補)
 

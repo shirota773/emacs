@@ -322,6 +322,11 @@ Elispの関数・変数はxref backendで扱えるため、まず追加パッケ
    - TRAMP標準のremote `M-x shell` を基準経路にする保守案。
    - comintの編集性を維持し、TUI時だけ自動char modeへ切り替える。
    - https://elpa.gnu.org/packages/coterm.html
+4. **eat**(2026-07-23追加)
+   - 純Elispのterminal emulator。`start-file-process` 経由でTRAMP全メソッド透過。
+   - claude-code.el等のTUI用途で実績。native Windows非対応。
+   - macOS local/TRAMPの本命候補として常用キー `C-t` (`my/eat-here`) も割当済み。
+   - https://codeberg.org/akib/emacs-eat
 
 試験コマンドは以下。必ず比較したいTRAMPファイルbufferから実行する。
 
@@ -330,6 +335,7 @@ Elispの関数・変数はxref backendで扱えるため、まず追加パッケ
 | `C-c T g` | Ghostel |
 | `C-c T m` | MisTTY |
 | `C-c T c` | shell + coterm |
+| `C-c T e` | eat (常用: `C-t`) |
 | `C-c T r` | 編集可能な比較採点表 |
 | `C-c T x` | global coterm-mode停止 |
 | `C-c T ?` | 使用方法・環境情報 |
@@ -616,6 +622,7 @@ rtk emacs --batch -Q --eval \
 | 1 | shell + coterm | Windows / TRAMP terminal | 標準TRAMP経路を使う安定性の基準候補 |
 | 1 | MisTTY | TRAMP shellとEmacs編集の融合 | Windowsは公式確認外のため実機判定 |
 | 1 | Ghostel | Windows / TRAMP / TUI | 最も高機能だがWindows対応が新しくresize制限あり |
+| 1 | eat | macOS local / TRAMP / TUI | 2026-07-23導入済み。`C-c T e` + 常用 `C-t` で試用中 |
 | 2 | Activities | tabspace / session / layout | 置換実験推奨。いきなり全面移行しない |
 | 3 | Casual Suite | Dired等の操作発見性 | Emacs 30.1更新後に試す |
 | 5 | Breadcrumb | 大規模projectの現在位置表示 | xref復旧後に必要性を判断 |
@@ -662,6 +669,7 @@ rtk emacs --batch -Q --eval \
 
 | 日付 | 内容 | 備考 |
 |---|---|---|
+| 2026-07-23 | eatを比較枠(C-c T e)と常用キーC-tに追加 | `feat/eat-terminal`、macOS local/TRAMP本命候補 |
 | 2026-07-14 | Windows/TRAMP優先でGhostel・MisTTY・shell+cotermの比較設定を追加 | `31_terminal-test.el`、仕事PC実機採点待ち |
 | 2026-07-14 | init-loaderの公開変数名を修正し、P0全項目のフルロードを再検証 | P0完了・GUI実機確認待ち |
 | 2026-07-14 | treesit-auto本体をmode有効化前に明示ロード | P0 treesit-auto完了 |

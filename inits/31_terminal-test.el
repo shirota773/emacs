@@ -11,10 +11,11 @@
 ;;
 ;; 基本手順:
 ;;   1. 比較したいTRAMPファイルを開き、そのbufferを選択する。
-;;   2. 次の3コマンドを同じbufferから順に実行する。
+;;   2. 次の4コマンドを同じbufferから順に実行する。
 ;;        C-c T g  Ghostel
 ;;        C-c T m  MisTTY
 ;;        C-c T c  shell + coterm
+;;        C-c T e  eat
 ;;   3. C-c T r で評価用bufferを作り、候補ごとに結果を記入する。
 ;;   4. C-c T ? で、この説明と既知の制約を再表示する。
 ;;
@@ -34,6 +35,9 @@
 ;;     Linux/macOS。native Windows Emacsからの利用は今回の実機評価対象。
 ;;   - coterm: 起動時にはglobal `coterm-mode'を有効にする。C-c T xで
 ;;     新規comint bufferへの適用を停止できる。
+;;   - eat: native Windowsでは動作しない (macOS local/TRAMP用の本命候補)。
+;;     常用キーは C-t (`my/eat-here')。fishのdirectory trackingには
+;;     fish側でeatのshell integrationをsourceする必要がある。
 ;;
 ;; 採用判定では、見た目より次を優先する:
 ;;   接続成功、再接続、入力遅延、resize、TUI、copy/paste、日本語幅、
@@ -67,6 +71,16 @@
 
 (leaf coterm
   :ensure t)
+
+;; eat: macOS local + TRAMP + TUI (claude/tmux) の本命候補。NonGNU ELPA。
+;; native Windowsでは動作しないため my/eat-here 側でガードする。
+(leaf eat
+  :ensure t
+  :custom
+  ;; TRAMP先にeatのterminfoが無い環境でも表示が壊れないよう汎用TERMを使う
+  (eat-term-name . "xterm-256color")
+  ;; プロセス終了でbufferも消す (再利用判定は生存プロセスのみが対象になる)
+  (eat-kill-buffer-on-exit . t))
 
 (defun my/terminal-test--remote-p ()
   "現在の`default-directory'がremoteならnon-nilを返す。"
@@ -138,6 +152,31 @@
         (message "coterm-modeを無効にしました"))
     (message "cotermはまだloadされていません")))
 
+(defun my/eat-here (&optional arg)
+  "現在の`default-directory'でeatを開く。TRAMP bufferならremote shellを起動する。
+接続単位のbuffer名 (*eat:local* など) で生存プロセスのbufferを再利用する。
+C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
+  (interactive "P")
+  (when (eq system-type 'windows-nt)
+    (user-error "eatはnative Windows非対応。C-c T g/m/c を使ってください"))
+  (my/terminal-test--assert-directory)
+  (unless (require 'eat nil t)
+    (user-error "eatをloadできません。package install結果を確認してください"))
+  (let* ((buf-name (format "*eat:%s*" (my/terminal-test--scope-name)))
+         (existing (get-buffer buf-name)))
+    (if (and existing (get-buffer-process existing) (not arg))
+        (pop-to-buffer existing)
+      (let ((eat-buffer-name buf-name)
+            (shell (if (my/terminal-test--remote-p)
+                       my/terminal-test-remote-shell
+                   (or explicit-shell-file-name shell-file-name))))
+        (eat shell arg)))))
+
+(defun my/terminal-test-eat ()
+  "現在地でeatを起動する (`my/eat-here'の試験枠向けエイリアス)。"
+  (interactive)
+  (call-interactively #'my/eat-here))
+
 (defun my/terminal-test--environment-summary ()
   "現在の比較環境を文字列で返す。"
   (format
@@ -147,7 +186,7 @@
            "remote: %s\n"
            "remote method/user/host: %s / %s / %s\n"
            "test remote shell: %s %s\n"
-           "libraries: ghostel=%s, mistty=%s, coterm=%s\n")
+           "libraries: ghostel=%s, mistty=%s, coterm=%s, eat=%s\n")
    emacs-version
    system-type
    default-directory
@@ -159,7 +198,8 @@
    (mapconcat #'identity my/terminal-test-remote-shell-args " ")
    (if (locate-library "ghostel") "installed" "missing")
    (if (locate-library "mistty") "installed" "missing")
-   (if (locate-library "coterm") "installed" "missing")))
+   (if (locate-library "coterm") "installed" "missing")
+   (if (locate-library "eat") "installed" "missing")))
 
 (defun my/terminal-test-report ()
   "現在の環境情報と比較チェックリストを編集可能bufferに作る。"
@@ -173,20 +213,20 @@
                 "========================================\n\n"
                 summary "\n"
                 "採点: 1=使えない / 3=許容 / 5=非常に良い\n\n"
-                "| 項目 | Ghostel | MisTTY | shell+coterm | メモ |\n"
-                "|---|---:|---:|---:|---|\n"
-                "| 初回導入・起動 |  |  |  |  |\n"
-                "| TRAMP接続・再接続 |  |  |  |  |\n"
-                "| 通常入力・履歴・補完 |  |  |  |  |\n"
-                "| 入力遅延・大量出力 |  |  |  |  |\n"
-                "| less/top/tmux |  |  |  |  |\n"
-                "| Claude Code等のTUI |  |  |  |  |\n"
-                "| window resize/reflow |  |  |  |  |\n"
-                "| copy/paste・kill-ring |  |  |  |  |\n"
-                "| 日本語入力・表示幅 |  |  |  |  |\n"
-                "| cwd追跡・fileを開く |  |  |  |  |\n"
-                "| process終了・Emacs終了 |  |  |  |  |\n"
-                "| Windows local shell |  |  |  |  |\n\n"
+                "| 項目 | Ghostel | MisTTY | shell+coterm | eat | メモ |\n"
+                "|---|---:|---:|---:|---:|---|\n"
+                "| 初回導入・起動 |  |  |  |  |  |\n"
+                "| TRAMP接続・再接続 |  |  |  |  |  |\n"
+                "| 通常入力・履歴・補完 |  |  |  |  |  |\n"
+                "| 入力遅延・大量出力 |  |  |  |  |  |\n"
+                "| less/top/tmux |  |  |  |  |  |\n"
+                "| Claude Code等のTUI |  |  |  |  |  |\n"
+                "| window resize/reflow |  |  |  |  |  |\n"
+                "| copy/paste・kill-ring |  |  |  |  |  |\n"
+                "| 日本語入力・表示幅 |  |  |  |  |  |\n"
+                "| cwd追跡・fileを開く |  |  |  |  |  |\n"
+                "| process終了・Emacs終了 |  |  |  |  |  |\n"
+                "| Windows local shell |  |  |  | n/a |  |\n\n"
                 "致命的問題:\n\n"
                 "採用したい候補と理由:\n"))
       (goto-char (point-min))
@@ -204,18 +244,21 @@
       (princ "  C-c T g  Ghostelを現在地で起動\n")
       (princ "  C-c T m  新しいMisTTYを現在地で起動\n")
       (princ "  C-c T c  shell + cotermを接続単位で起動/再表示\n")
+      (princ "  C-c T e  eatを接続単位で起動/再表示 (常用: C-t)\n")
       (princ "  C-c T r  編集可能な比較表を作成\n")
       (princ "  C-c T x  global coterm-modeを停止\n")
       (princ "  C-c T ?  このHelpを表示\n\n")
       (princ "既存の <f12> は従来どおりM-x shellです。\n")
       (princ "GhostelのWindows->TRAMPは動的resize未対応です。\n")
-      (princ "MisTTYのnative Windows利用は公式確認外なので、失敗も評価結果です。\n"))))
+      (princ "MisTTYのnative Windows利用は公式確認外なので、失敗も評価結果です。\n")
+      (princ "eatはnative Windows非対応です (macOS local/TRAMP用)。\n"))))
 
 (defvar-keymap my/terminal-test-prefix-map
   :doc "Terminal backend comparison commands."
   "g" #'my/terminal-test-ghostel
   "m" #'my/terminal-test-mistty
   "c" #'my/terminal-test-coterm
+  "e" #'my/terminal-test-eat
   "r" #'my/terminal-test-report
   "x" #'my/terminal-test-disable-coterm
   "?" #'my/terminal-test-help)

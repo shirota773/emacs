@@ -28,6 +28,7 @@
  ("C-^"     . enlarge-window)
  ("C-."     . my/dabbrev-expand-or-completing-read)
  ("<f12>"   . shell)
+ ("C-t"     . my/eat-here)          ; local/TRAMPを判定して接続単位のeatを開く
  ("C-x C-q" . view-mode)
  ("C-x k"   . kill-current-buffer)
  ("C-c c"   . org-capture)
