@@ -133,6 +133,12 @@
      kill -USR2 を連打 (タイマーにエラー注入) → 回復
    - fish補足: fish 4.x は comint (dumb端末) でDA1クエリ応答を10秒待つ
      警告が出る + プロンプト後に空行が入る (comintとの相性、別課題)
+   2026-07-24: 上記を受けて **C-t (my/term-here) をmistty/shell分岐に更新**。
+   macOSはmistty (fzf/tmuxを捌けることを実証済み)、native Windowsはshellに
+   自動分岐。接続単位バッファ (*mistty:scope* / *shell:scope*)。
+   仕事PCのWindows実機判定 (C-c T r 採点表) でmisttyが動けば一本化を検討。
+   eatはWindows非対応+Rosettaフリーズのためクロス統一の軸から除外
+   (arm64移行後もmacOS専用のおまけ扱い)。
 
 8. **bufferlo (GNU ELPA 1.2)** — 2026-07-23移行。tabspaces + 自作 tabspace 群の
    置き換え。GUI で実機確認してから判定する項目:

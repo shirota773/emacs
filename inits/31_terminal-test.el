@@ -196,22 +196,36 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   (call-interactively #'my/eat-here))
 
 (defun my/term-here (&optional arg)
-  "現在の`default-directory'でshellを開く。TRAMP bufferならremote shellになる。
-接続単位のbuffer名 (*shell:local* など) で生存プロセスのbufferを再利用する。
-C-u (ARG) 付きで同じ接続に新しいbufferを追加する。
-eatがこの環境 (emacs-mac/Rosetta) でフリーズするため、当面の常用 (C-t)。
-TUIが必要なら C-c T c で coterm を有効化してから使う。"
+  "現在の`default-directory'でterminalを開く。TRAMP bufferならremote shellになる。
+macOSではmistty (TUIも捌ける。fzf/tmuxで実証済み)、native Windowsでは
+shell (唯一の確実な経路) を使う。接続単位のbuffer名 (*mistty:local* /
+*shell:local* など) で生存プロセスのbufferを再利用する。
+C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   (interactive "P")
   (my/terminal-test--assert-directory)
-  (let* ((buf-name (format "*shell:%s*" (my/terminal-test--scope-name)))
+  (let* ((use-mistty (and (not (eq system-type 'windows-nt))
+                          (require 'mistty nil t)))
+         (buf-name (format "*%s:%s*" (if use-mistty "mistty" "shell")
+                           (my/terminal-test--scope-name)))
          (existing (get-buffer buf-name)))
     (if (and existing (get-buffer-process existing) (not arg))
         (pop-to-buffer existing)
-      (let ((explicit-shell-file-name
-             (if (my/terminal-test--remote-p)
-                 my/terminal-test-remote-shell
-               explicit-shell-file-name)))
-        (shell (if arg (generate-new-buffer-name buf-name) buf-name))))))
+      (if use-mistty
+          (let* ((mistty-shell-command
+                  (if (my/terminal-test--remote-p)
+                      (cons my/terminal-test-remote-shell
+                            my/terminal-test-remote-shell-args)
+                    mistty-shell-command))
+                 (buf (mistty-create)))
+            (when (buffer-live-p buf)
+              (with-current-buffer buf
+                (rename-buffer
+                 (if arg (generate-new-buffer-name buf-name) buf-name) t))))
+        (let ((explicit-shell-file-name
+               (if (my/terminal-test--remote-p)
+                   my/terminal-test-remote-shell
+                 explicit-shell-file-name)))
+          (shell (if arg (generate-new-buffer-name buf-name) buf-name)))))))
 
 (defun my/terminal-test--environment-summary ()
   "現在の比較環境を文字列で返す。"

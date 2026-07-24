@@ -57,9 +57,9 @@
              ("j" . next-line)
              ("k" . previous-line)))
 
-;; C-t: local/TRAMPを判定して接続単位のterminalを開く。
-;; eatがRosetta実行のEmacsではTUI出力でフリーズするため、当面はshellベースの
-;; my/term-here (31_terminal-test.el)。arm64版Emacs移行後は my/eat-here に戻す。
+;; C-t: local/TRAMPを判定して接続単位のterminalを開く (my/term-here)。
+;; macOSはmistty (TUI対応)、native Windowsはshellに自動分岐。
+;; eatはRosetta実行のEmacsでTUI出力によりフリーズするため不採用 (31参照)。
 ;; minibufferではvertico-mapのC-t (ディレクトリジャンプ) を優先させるため、
 ;; override (bind-keys*) ではなく通常のglobal-mapに置く。
 (bind-key "C-t" #'my/term-here)
