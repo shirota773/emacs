@@ -207,8 +207,17 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
                           (require 'mistty nil t)))
          (buf-name (format "*%s:%s*" (if use-mistty "mistty" "shell")
                            (my/terminal-test--scope-name)))
-         (existing (get-buffer buf-name)))
-    (if (and existing (get-buffer-process existing) (not arg))
+         (existing (get-buffer buf-name))
+         ;; misttyはプロセスをbuffer-localのmistty-procに持つ
+         ;; (get-buffer-processでは取れない) ため生存判定を分ける
+         (existing-live
+          (and existing
+               (if use-mistty
+                   (with-current-buffer existing
+                     (and (bound-and-true-p mistty-proc)
+                          (process-live-p mistty-proc)))
+                 (get-buffer-process existing)))))
+    (if (and existing-live (not arg))
         (pop-to-buffer existing)
       (if use-mistty
           (let* ((mistty-shell-command
