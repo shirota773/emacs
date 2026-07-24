@@ -35,10 +35,10 @@
 ;;     Linux/macOS。native Windows Emacsからの利用は今回の実機評価対象。
 ;;   - coterm: 起動時にはglobal `coterm-mode'を有効にする。C-c T xで
 ;;     新規comint bufferへの適用を停止できる。
-;;   - eat: native Windowsでは動作しない。さらにemacs-mac (x86_64/Rosetta)
-;;     では出力処理タイマーがビジーループしEmacsが完全フリーズするため
-;;     コマンド側でガード中 (2026-07-24、misttyも同症状)。
-;;     C-t は当面 `my/term-here' (接続単位shell)。arm64版Emacsで要再検証。
+;;   - eat: native Windowsでは動作しない。さらにRosetta実行 (x86_64 Emacs)
+;;     ではfzf等のTUI連続出力に処理が追いつかずライブロック=フリーズする
+;;     ためガード中 (2026-07-24実測。arm64ネイティブなら正常、misttyは
+;;     x86_64でも無事)。C-t は当面 `my/term-here' (接続単位shell)。
 ;;
 ;; 採用判定では、見た目より次を優先する:
 ;;   接続成功、再接続、入力遅延、resize、TUI、copy/paste、日本語幅、
@@ -81,7 +81,15 @@
   ;; TRAMP先にeatのterminfoが無い環境でも表示が壊れないよう汎用TERMを使う
   (eat-term-name . "xterm-256color")
   ;; プロセス終了でbufferも消す (再利用判定は生存プロセスのみが対象になる)
-  (eat-kill-buffer-on-exit . t))
+  (eat-kill-buffer-on-exit . t)
+  :config
+  ;; M-x eat 直接起動でも Rosetta フリーズ (my/eat-here のコメント参照) を
+  ;; 踏まないよう確認を挟む。arm64 ネイティブ Emacs では何も出ない
+  (define-advice eat (:before (&rest _) my/eat-rosetta-guard)
+    (when (and (eq system-type 'darwin)
+               (string-prefix-p "x86_64" system-configuration)
+               (not (y-or-n-p "eatはこの環境 (Rosetta) でTUI表示によりフリーズする既知問題があります。起動しますか? ")))
+      (user-error "eat の起動を中止しました"))))
 
 (defun my/terminal-test--remote-p ()
   "現在の`default-directory'がremoteならnon-nilを返す。"
@@ -160,12 +168,15 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   (interactive "P")
   (when (eq system-type 'windows-nt)
     (user-error "eatはnative Windows非対応。C-c T g/m/c を使ってください"))
-  ;; emacs-mac (x86_64をRosettaで実行) では eat の出力処理タイマーがビジー
-  ;; ループし Emacs 全体が完全フリーズする (2026-07-24、-Qで再現確認。
-  ;; master版も同症状、mistty も同様、term.el は無事)。真因の切り分け
-  ;; (Rosetta vs emacs-mac) が済むまでガードで起動を止める。
-  (when (boundp 'mac-carbon-version-string)
-    (user-error "eatはこの環境 (emacs-mac) でフリーズします。C-t (shell) か <f12> を使ってください"))
+  ;; eat の出力処理はキューが空くまでイベントループへ戻らないため、
+  ;; Rosetta (x86_64 Emacs を Apple Silicon で実行) では fzf/tmux 等の
+  ;; 連続出力に処理が追いつかず、ライブロック = 完全フリーズする。
+  ;; 2026-07-24 実測: x86_64 では -Q でも「eat + zsh + fzf」で確実に再現、
+  ;; arm64 ネイティブ (emacs-plus) では同手順で正常。mistty/shell は
+  ;; x86_64 でも無事。arm64 版 Emacs に乗り換えればこのガードは自動解除。
+  (when (and (eq system-type 'darwin)
+             (string-prefix-p "x86_64" system-configuration))
+    (user-error "eatはRosetta実行のEmacsではTUI出力でフリーズします。C-t (shell) か C-c T m (mistty) を使ってください"))
   (my/terminal-test--assert-directory)
   (unless (require 'eat nil t)
     (user-error "eatをloadできません。package install結果を確認してください"))
@@ -276,8 +287,8 @@ TUIが必要なら C-c T c で coterm を有効化してから使う。"
       (princ "既存の <f12> は従来どおりM-x shellです。\n")
       (princ "GhostelのWindows->TRAMPは動的resize未対応です。\n")
       (princ "MisTTYのnative Windows利用は公式確認外なので、失敗も評価結果です。\n")
-      (princ "eatはnative Windows非対応、emacs-mac/Rosettaではフリーズのためガード中です。\n")
-      (princ "常用のC-tは接続単位shell (my/term-here) です。\n"))))
+      (princ "eatはnative Windows非対応、Rosetta実行のEmacsではTUIでフリーズのためガード中です。\n")
+      (princ "常用のC-tは接続単位shell (my/term-here) です。TUIはmistty (C-c T m) が無事です。\n"))))
 
 (defvar-keymap my/terminal-test-prefix-map
   :doc "Terminal backend comparison commands."

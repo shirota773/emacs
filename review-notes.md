@@ -115,13 +115,24 @@
    claude等TUIの本命候補として、常用キー `C-t` (`my/eat-here`、default-directory
    でlocal/remoteを判定し接続単位バッファを再利用) も最初から割当。
    native Windows非対応のためコマンド側でガード。
-   2026-07-24: **eatはemacs-mac (x86_64/Rosetta) で完全フリーズすることが判明**。
-   -Q最小再現で確認 (0.9.4/master共通、シェル種別・eat-term-name無関係、
-   misttyも同症状、term.el/comintは無事)。スタックはtimer_checkの
-   Lispタイマーがビジーループ (macOSのsampleで採取)。SIGUSR2+子プロセス
-   killで救出可能。eatコマンドにガードを入れ、C-tは `my/term-here`
-   (接続単位shell) に暫定変更。真因候補はRosetta (x86_64 EmacsをM4で実行)。
-   arm64版Emacs (emacs-mac arm64 / emacs-plus) での再検証が根治の見込み。
+   2026-07-24 (最終結論): **eatフリーズの真因はRosettaライブロックと確定**。
+   eatの出力処理は出力キューが空くまでイベントループへ戻らない設計のため、
+   Rosetta実行 (x86_64 EmacsをM4で実行) ではfzf/tmux等の連続TUI出力に
+   処理が追いつかず永久フリーズする (スタック実測: timer内Lisp実行が
+   継続)。シェル種別や設定は無関係で、TUIを動かすまで発症しない。
+   - 確定再現手順: eat + zsh + fzf(tm)。x86_64では -Q でも即再現
+   - arm64ネイティブでは同手順で正常 (emacs-plus@29 をビルド済み:
+     /opt/homebrew/opt/emacs-plus@29、リンクは既存Emacsと衝突するため未実施)
+     → **arm64版Emacsへの乗り換えが根治**
+   - **misttyは冤罪** (x86_64でも同手順で無事)。TUI用途の本命候補に復帰。
+     当初の「misttyも同症状」は検証スクリプト不備による誤判定だった
+   - shell/comint (C-t = my/term-here) はTUI描画を解釈しないため安全
+   - 対応: my/eat-hereのガードを「darwin + x86_64」条件に精密化 (arm64
+     移行で自動解除)、M-x eat直接起動には y-or-n-p 確認 advice
+   - 再フリーズ時の救出手順: シェル子プロセスを kill -9 → Emacs へ
+     kill -USR2 を連打 (タイマーにエラー注入) → 回復
+   - fish補足: fish 4.x は comint (dumb端末) でDA1クエリ応答を10秒待つ
+     警告が出る + プロンプト後に空行が入る (comintとの相性、別課題)
 
 8. **bufferlo (GNU ELPA 1.2)** — 2026-07-23移行。tabspaces + 自作 tabspace 群の
    置き換え。GUI で実機確認してから判定する項目:

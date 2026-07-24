@@ -677,7 +677,8 @@ rtk emacs --batch -Q --eval \
 
 | 日付 | 内容 | 備考 |
 |---|---|---|
-| 2026-07-24 | eat/misttyがemacs-mac/Rosettaで完全フリーズと判明、ガード追加しC-tをshellへ | term.el/comintは無事。真因候補はRosetta。arm64版Emacsでの再検証が根治候補 |
+| 2026-07-24 | eatフリーズの真因をRosettaライブロックと確定 (eat+zsh+fzfで-Q再現、arm64は正常)。misttyは冤罪と判明し復権 | ガードをx86_64条件に精密化、M-x eatにも確認advice。arm64乗り換えが根治 |
+| 2026-07-24 | eat/misttyがemacs-mac/Rosettaで完全フリーズと判明、ガード追加しC-tをshellへ | term.el/comintは無事。真因候補はRosetta。arm64版Emacsでの再検証が根治候補 (→同日、上記の最終結論で訂正) |
 | 2026-07-24 | macOSタブバー非表示の真因を修正 | tab-bar-auto-width-min/maxがEmacs 30形式だった。29形式(N M)へ。leaf :customは式を評価できない点も記録 |
 | 2026-07-23 | tabspaces+自作tabspace群をbufferloへ移行 | `refactor/tabspaces-to-bufferlo`。session/layout=タブbookmark一本化、tab-bar-history-mode採用、自作UI 33KB削除、tab-bar-show=t |
 | 2026-07-23 | eatを比較枠(C-c T e)と常用キーC-tに追加 | `feat/eat-terminal`、macOS local/TRAMP本命候補 |
