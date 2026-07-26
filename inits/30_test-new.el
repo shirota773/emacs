@@ -89,7 +89,36 @@
 ;;   my/tramp-windows-login-shell-hosts に (正規表現 . "/bin/sh") を足す。
 ;;   原因A と原因B は別問題なので、必要な方だけを足せばよい。
 ;;
-;;   ハマりどころ: リストを編集したら M-x tramp-cleanup-all-connections が必須。
+;;   どのホストが該当するかは環境ごとに違う。private の mac と、仕事で使う
+;;   Windows -> Linux では必要なワークアラウンドが別物で、後者はこの環境から
+;;   疎通テストできない。よって値は git 管理下のこのファイルではなく
+;;   ~/.emacs.local-inits/NN_*.el 側に置く。書き方は素の
+;;
+;;     (setq my/tramp-windows-force-pty-hosts '("..."))
+;;
+;;   だけでよく、再適用関数を呼ぶ必要はない (理由は下記)。
+;;   my/tramp-windows-workaround-methods も同じタイミングで読み直される。
+;;
+;; ★ なぜ after-init-hook でもう一度適用するのか (ここを消すと local-inits が死ぬ)
+;;   tramp-connection-properties は「値」を持つ静的なデータで、2-2 節の補完の
+;;   ように参照時評価にする余地が無い。よって「いつ適用するか」で解決するしかない。
+;;   tramp の require は inits/31_terminal.el:58 で起きる。つまり
+;;   with-eval-after-load 'tramp は inits/ を読んでいる途中で発火してしまい、
+;;   init.el:81-83 が ~/.emacs.local-inits を読むより前に終わっている。
+;;   そこで after-init-hook (startup.el:1570 = init ファイル読み込み完了直後、
+;;   local-inits より後) でもう一度適用し、local-inits の setq を反映させる。
+;;   起動中に接続が起きても効くよう、tramp ロード時の 1 回目も残してある。
+;;
+;;   2 回走るので my/tramp-apply-windows-host-workarounds は冪等にしてある。
+;;   前回自分が登録したエントリを my/tramp--windows-workaround-properties に
+;;   控えておき、再適用時に eq で特定して取り除いてから登録し直す。
+;;   eq 比較なので他所が入れた tramp-connection-properties のエントリは消さない。
+;;   リストからホストを削除した場合も、古い上書きが残らず stock の
+;;   login-args に戻る。
+;;
+;;   ハマりどころ: 起動後にリストを編集したときは
+;;   M-x my/tramp-apply-windows-host-workarounds で再適用したうえで、
+;;   さらに M-x tramp-cleanup-all-connections が必須。
 ;;   tramp-dump-connection-properties (tramp-cache.el:551-583) は "login-args" を
 ;;   var/tramp/persistency.el に永続化する。一方 tramp-get-hash-table
 ;;   (tramp-cache.el:131-141) が tramp-connection-properties から seed するのは
@@ -103,7 +132,13 @@
 (defcustom my/tramp-windows-force-pty-hosts '("192\\.168\\.0\\.10")
   "ssh に -t -t (pty 強制) を付けるホスト名の正規表現リスト。
 Windows の Emacs から接続したときだけ適用される。原因A への対処。
-編集したら M-x tramp-cleanup-all-connections を実行すること。
+
+環境ごとに違う値なので ~/.emacs.local-inits/NN_*.el 側で
+素の setq で上書きしてよい。after-init-hook で再適用されるため
+`my/tramp-apply-windows-host-workarounds' を呼ぶ必要はない。
+
+起動後に編集した場合だけは、M-x で再適用したうえで
+M-x tramp-cleanup-all-connections も実行すること。
 永続化キャッシュ (var/tramp/persistency.el) に残った古い login-args が
 優先され、直したはずの設定が効かないため。"
   :type '(repeat regexp)
@@ -115,14 +150,26 @@ CAR はホスト名の正規表現、CDR はリモート上の POSIX シェル�
 ssh のリモートコマンドとして SHELL -i を渡し、プロンプトが解析不能な
 ログインシェル (fish など) を経由しないようにする。
 Windows の Emacs から接続したときだけ適用される。
-編集したら M-x tramp-cleanup-all-connections を実行すること。
+
+環境ごとに違う値なので ~/.emacs.local-inits/NN_*.el 側で
+素の setq で上書きしてよい。after-init-hook で再適用されるため
+`my/tramp-apply-windows-host-workarounds' を呼ぶ必要はない。
+
+起動後に編集した場合だけは、M-x で再適用したうえで
+M-x tramp-cleanup-all-connections も実行すること。
 永続化キャッシュ (var/tramp/persistency.el) に残った古い login-args が
 優先され、直したはずの設定が効かないため。"
   :type '(alist :key-type regexp :value-type string)
   :group 'tramp)
 
 (defvar my/tramp-windows-workaround-methods '("ssh" "scp")
-  "ホスト単位ワークアラウンドを適用する TRAMP method 名のリスト。")
+  "ホスト単位ワークアラウンドを適用する TRAMP method 名のリスト。
+これも ~/.emacs.local-inits/ 側から素の setq で変えてよい。")
+
+(defvar my/tramp--windows-workaround-properties nil
+  "自分が `tramp-connection-properties' に登録したエントリの実体リスト。
+再適用時にこの中の cons を eq で特定して取り除くためだけに持つ。
+値ではなく実体で覚えるので、他所が登録したエントリは巻き添えにしない。")
 
 (defun my/tramp--login-args-force-pty (args)
   "ARGS の \"%h\" の直前に (\"-t\") (\"-t\") を挿入した新しいリストを返す。
@@ -150,7 +197,19 @@ ARGS は `tramp-login-args' と同じ形式。既に -t を含むときはその
   "ホスト単位の login-args 上書きを `tramp-connection-properties' に登録する。
 `tramp-methods' は変更しない。login-args の値はハードコードせず
 `tramp-methods' の現在値から加工するので、TRAMP の版が上がって既定の
-login-args が変わっても設定が腐らない。"
+login-args が変わっても設定が腐らない。
+
+何度呼んでも同じ結果になる (冪等)。前回自分が登録した分を先に取り除くので、
+リストからホストを消した場合も古い上書きが残らない。tramp のロード後に
+呼ぶこと。呼ばれた時点の変数の値を読むので、~/.emacs.local-inits/ 側で
+setq した値も拾う。"
+  (interactive)
+  ;; 前回自分が入れた分だけを取り除く。delq (eq 比較) なので、たまたま同じ値の
+  ;; エントリを他所が登録していても、そちらは消さない。
+  (dolist (prop my/tramp--windows-workaround-properties)
+    (setq tramp-connection-properties
+          (delq prop tramp-connection-properties)))
+  (setq my/tramp--windows-workaround-properties nil)
   (let ((hosts (delete-dups
                 (append (copy-sequence my/tramp-windows-force-pty-hosts)
                         (mapcar #'car my/tramp-windows-login-shell-hosts)))))
@@ -167,15 +226,31 @@ login-args が変わっても設定が腐らない。"
             (unless (equal args stock)
               ;; 正規表現は (tramp-make-tramp-file-name vec 'noloc) すなわち
               ;; "/ssh:user@host:" に対して照合される (tramp-cache.el:136-140)
-              (add-to-list
-               'tramp-connection-properties
-               (list (format "\\`/%s:\\(?:[^@|:]+@\\)?%s\\(?:#[0-9]+\\)?:"
-                             (regexp-quote method) host)
-                     "login-args" args)))))))))
+              (let ((prop (list (format "\\`/%s:\\(?:[^@|:]+@\\)?%s\\(?:#[0-9]+\\)?:"
+                                        (regexp-quote method) host)
+                                "login-args" args)))
+                ;; 同値のエントリが既にあるなら足さない。その場合は自分の登録分
+                ;; として控えないので、次回の掃除でも他所のエントリを消さない。
+                (unless (member prop tramp-connection-properties)
+                  (push prop tramp-connection-properties)
+                  (push prop my/tramp--windows-workaround-properties))))))))))
 
-(when (eq system-type 'windows-nt)
+(defun my/tramp-reapply-windows-host-workarounds ()
+  "`after-init-hook' から ~/.emacs.local-inits/ の値で登録し直す。
+`with-eval-after-load' を挟むのは、tramp が未ロードのまま after-init を
+迎えた場合に `tramp-methods' 未定義で落ちないようにするため。
+ロード済みなら即時に実行される。"
   (with-eval-after-load 'tramp
     (my/tramp-apply-windows-host-workarounds)))
+
+(when (eq system-type 'windows-nt)
+  ;; 1 回目: tramp のロード直後。inits/ の途中 (31_terminal.el:58) で走る。
+  ;; 起動処理中に接続が発生しても効くようにするための保険。
+  (with-eval-after-load 'tramp
+    (my/tramp-apply-windows-host-workarounds))
+  ;; 2 回目: 全 init 読み込み後。ここで初めて ~/.emacs.local-inits/ の setq が
+  ;; 見える。シンボルで登録するので init-loader が再ロードしても重複しない。
+  (add-hook 'after-init-hook #'my/tramp-reapply-windows-host-workarounds))
 
 ;; recentf: リモートエントリは stat せず保持する (終了時ハング対策)
 (setq recentf-keep '(file-remote-p file-readable-p))
