@@ -22,6 +22,14 @@ dired-hacks/
 
 # Claude Code configuration
 CLAUDE.md
+.claude
+
+# Package-installed assets (再取得できるので追跡しない)
+all-the-icons-fonts/
+yasnippet-snippets/
+
+# Customize の保存先 (init.el で custom-file は null-device にしてある)
+custom-set-variables.el
 
 # Temporary workspace backups
 unused/
