@@ -33,7 +33,7 @@
    tabspaces標準セッションと独自セッション、独自レイアウト、独自bookmark、
    独自Winner履歴、独自一覧UIが重なっている。
 4. **ターミナルはWindows/TRAMPを最優先に比較試験中。**
-   `<f12>` の既存 `shell` をfallbackとして維持し、`31_terminal-test.el` で
+   `<f12>` の既存 `shell` をfallbackとして維持し、`31_terminal.el` で
    Ghostel、MisTTY、shell+cotermを同じTRAMP bufferから比較できる。
 5. **Diredはすでに高水準。**
    新しいファイラーを追加するより、操作発見性とTRAMP時の軽量化を改善すべき。
@@ -283,7 +283,7 @@ Elispの関数・変数はxref backendで扱えるため、まず追加パッケ
 - `<f12>` はfallbackとして組み込み `shell` のまま維持。
 - `exec-path-from-shell` によりGUI EmacsのPATHをfishと合わせる設定はある。
 - Popperは `shell-mode` / `eshell-mode` bufferを対象にできる。
-- `31_terminal-test.el` でGhostel、MisTTY、shell+cotermを試験導入済み。
+- `31_terminal.el` でGhostel、MisTTY、shell+cotermを試験導入済み。
 - `C-c T g/m/c` で、選択中bufferの `default-directory` を起点に比較できる。
 - `C-c T r` は環境情報入りの採点表、`C-c T ?` は操作Helpを生成する。
 - projectごとのterminal生成・再利用規則はない。
@@ -683,7 +683,7 @@ rtk emacs --batch -Q --eval \
 | 2026-07-24 | macOSタブバー非表示の真因を修正 | tab-bar-auto-width-min/maxがEmacs 30形式だった。29形式(N M)へ。leaf :customは式を評価できない点も記録 |
 | 2026-07-23 | tabspaces+自作tabspace群をbufferloへ移行 | `refactor/tabspaces-to-bufferlo`。session/layout=タブbookmark一本化、tab-bar-history-mode採用、自作UI 33KB削除、tab-bar-show=t |
 | 2026-07-23 | eatを比較枠(C-c T e)と常用キーC-tに追加 | `feat/eat-terminal`、macOS local/TRAMP本命候補 |
-| 2026-07-14 | Windows/TRAMP優先でGhostel・MisTTY・shell+cotermの比較設定を追加 | `31_terminal-test.el`、仕事PC実機採点待ち |
+| 2026-07-14 | Windows/TRAMP優先でGhostel・MisTTY・shell+cotermの比較設定を追加 | `31_terminal.el`、仕事PC実機採点待ち |
 | 2026-07-14 | init-loaderの公開変数名を修正し、P0全項目のフルロードを再検証 | P0完了・GUI実機確認待ち |
 | 2026-07-14 | treesit-auto本体をmode有効化前に明示ロード | P0 treesit-auto完了 |
 | 2026-07-14 | `M-.` をxrefへ戻し、定義・参照候補表示をConsultへ統一 | P0 xref完了 |

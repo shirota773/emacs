@@ -97,7 +97,7 @@ coding-system の EOL 種別 (1 = dos) も確認する。"
   ;; 候補は usr/bin/bash.exe ではなく bin/bash.exe を使う。後者は MSYS 環境
   ;; (PATH, MSYSTEM 等) をセットアップしてから bash を起動するラッパーで、
   ;; Git for Windows の正しい入口。usr/bin/ の方は素の bash で環境が揃わない。
-  ;; WSL を使いたいときは C-c T w (my/terminal-test-wsl) で明示的に起動する。
+  ;; WSL を使いたいときは C-c T w (my/terminal-wsl) で明示的に起動する。
   (defcustom my/windows-git-bash-file-name
     (seq-find #'file-executable-p
               '("C:/Program Files/Git/bin/bash.exe"
@@ -136,7 +136,7 @@ coding-system の EOL 種別 (1 = dos) も確認する。"
   ;; ---- comint の表示ノイズ対策 (Windows 専用) ----
   ;; macOS 側の端末は mistty (本物の pty) を使っていて comint 経路を
   ;; 通らないので、以下は Windows 専用の win.el に置く。
-  ;; init.el 共通部や 31_terminal-test.el に書くと mac 側に無駄な
+  ;; init.el 共通部や 31_terminal.el に書くと mac 側に無駄な
   ;; フックが増えるだけになる。
 
   ;; (1) OSC エスケープ列。Git Bash の既定 PS1 は

@@ -61,7 +61,7 @@
 ;; macOSはmistty (TUI対応)、native Windowsはshellに自動分岐。
 ;; Windows localのshellはGit Bashをフルパス指定で固定 (inits/win.el参照)。
 ;; パス無しの"bash"はPATH順でSystem32\bash.exe=WSLを引くための対策。
-;; WSLを使いたいときは C-c T w (my/terminal-test-wsl) で明示的に起動する。
+;; WSLを使いたいときは C-c T w (my/terminal-wsl) で明示的に起動する。
 ;; eatはRosetta実行のEmacsでTUI出力によりフリーズするため不採用 (31参照)。
 ;; minibufferではvertico-mapのC-t (ディレクトリジャンプ) を優先させるため、
 ;; override (bind-keys*) ではなく通常のglobal-mapに置く。

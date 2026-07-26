@@ -1,8 +1,9 @@
-;;; 31_terminal-test.el --- Windows/TRAMP terminal comparison -*- lexical-binding: t; -*-
+;;; 31_terminal.el --- Terminal settings and backend comparison -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+;; 常用のterminal設定 (C-t -> `my/term-here'、C-c T プレフィックス) と、
 ;; Ghostel、MisTTY、shell + coterm を同じ作業ディレクトリから比較するための
-;; 試験設定。既存の <f12> -> `shell' は変更しない。
+;; コマンドをまとめる。既存の <f12> -> `shell' は変更しない。
 ;;
 ;; 主対象:
 ;;   native Windows Emacs -> TRAMP -> POSIX remote workstation
@@ -27,8 +28,8 @@
 ;;
 ;; Remote shell:
 ;;   試験時は既定で /bin/bash -i を使う。remote workstationが異なるshellを
-;;   使う場合は `my/terminal-test-remote-shell' と
-;;   `my/terminal-test-remote-shell-args' をCustomizeする。
+;;   使う場合は `my/terminal-remote-shell' と
+;;   `my/terminal-remote-shell-args' をCustomizeする。
 ;;
 ;; 既知の制約:
 ;;   - Ghostel: Windows -> TRAMPはPOSIX remoteのみ。remote terminalの動的な
@@ -45,7 +46,7 @@
 ;;     (WSL起動プロキシ) を引いてしまうため、`inits/win.el' で Git Bash を
 ;;     フルパス指定して `shell-file-name' / `explicit-shell-file-name' に固定
 ;;     している。C-t (`my/term-here') のWindows local分岐はそれを継承する。
-;;     WSLが必要なときは C-c T w (`my/terminal-test-wsl') で明示的に起動する。
+;;     WSLが必要なときは C-c T w (`my/terminal-wsl') で明示的に起動する。
 ;;
 ;; 採用判定では、見た目より次を優先する:
 ;;   接続成功、再接続、入力遅延、resize、TUI、copy/paste、日本語幅、
@@ -56,29 +57,29 @@
 (require 'subr-x)
 (require 'tramp)
 
-(defgroup my/terminal-test nil
+(defgroup my/terminal nil
   "Windows/TRAMP用terminal backendの比較試験。"
   :group 'terminals)
 
-(defcustom my/terminal-test-remote-shell "/bin/bash"
+(defcustom my/terminal-remote-shell "/bin/bash"
   "比較試験でremote host上に起動するinteractive shell。"
   :type 'string
-  :group 'my/terminal-test)
+  :group 'my/terminal)
 
-(defcustom my/terminal-test-remote-shell-args '("-i")
-  "`my/terminal-test-remote-shell'へ渡す引数。"
+(defcustom my/terminal-remote-shell-args '("-i")
+  "`my/terminal-remote-shell'へ渡す引数。"
   :type '(repeat string)
-  :group 'my/terminal-test)
+  :group 'my/terminal)
 
-(defcustom my/terminal-test-wsl-distro "Ubuntu"
-  "`my/terminal-test-wsl'が起動するWSLのdistribution名。"
+(defcustom my/terminal-wsl-distro "Ubuntu"
+  "`my/terminal-wsl'が起動するWSLのdistribution名。"
   :type 'string
-  :group 'my/terminal-test)
+  :group 'my/terminal)
 
 ;; shell.el は引数変数を
 ;;   (intern-soft (concat "explicit-" (file-name-nondirectory prog) "-args"))
 ;; で探すので、wsl.exeをフルパスで起動する場合はこの名前が必要。
-;; 実際の値は `my/terminal-test-wsl' がlet-bindする。
+;; 実際の値は `my/terminal-wsl' がlet-bindする。
 (defvar explicit-wsl.exe-args nil
   "`M-x shell'がwsl.exeを起動するときに渡す引数。")
 
@@ -110,68 +111,68 @@
                (not (y-or-n-p "eatはこの環境 (Rosetta) でTUI表示によりフリーズする既知問題があります。起動しますか? ")))
       (user-error "eat の起動を中止しました"))))
 
-(defun my/terminal-test--remote-p ()
+(defun my/terminal--remote-p ()
   "現在の`default-directory'がremoteならnon-nilを返す。"
   (file-remote-p default-directory))
 
-(defun my/terminal-test--scope-name ()
+(defun my/terminal--scope-name ()
   "現在のlocal/remote接続をbuffer名用の短い文字列にする。"
-  (if-let* ((remote (my/terminal-test--remote-p)))
+  (if-let* ((remote (my/terminal--remote-p)))
       (replace-regexp-in-string "[/:*]" "_" remote)
     "local"))
 
-(defun my/terminal-test--assert-directory ()
+(defun my/terminal--assert-directory ()
   "Terminalを起動する`default-directory'を検査する。"
   (unless (and (stringp default-directory)
                (not (string-empty-p default-directory)))
     (user-error "このbufferには有効なdefault-directoryがありません")))
 
-(defun my/terminal-test-ghostel ()
+(defun my/terminal-ghostel ()
   "現在地でGhostelを起動する。TRAMP bufferならremote terminalになる。"
   (interactive)
-  (my/terminal-test--assert-directory)
+  (my/terminal--assert-directory)
   (unless (require 'ghostel nil t)
     (user-error "ghostelをloadできません。package install結果を確認してください"))
   (call-interactively #'ghostel))
 
-(defun my/terminal-test-mistty ()
+(defun my/terminal-mistty ()
   "現在地に新しいMisTTYを作る。TRAMP bufferではremote shellを起動する。"
   (interactive)
-  (my/terminal-test--assert-directory)
+  (my/terminal--assert-directory)
   (unless (require 'mistty nil t)
     (user-error "misttyをloadできません。package install結果を確認してください"))
   ;; Windows側のexplicit-shell-file-nameはbashなので、そのままremote hostへ
   ;; 持ち込まず、比較用のremote shellを明示する。
   (let ((mistty-shell-command
-         (when (my/terminal-test--remote-p)
-           (cons my/terminal-test-remote-shell
-                 my/terminal-test-remote-shell-args))))
+         (when (my/terminal--remote-p)
+           (cons my/terminal-remote-shell
+                 my/terminal-remote-shell-args))))
     (call-interactively #'mistty-create)))
 
-(defun my/terminal-test-coterm ()
+(defun my/terminal-coterm ()
   "現在地でcoterm付き`M-x shell'を起動または再表示する。"
   (interactive)
-  (my/terminal-test--assert-directory)
+  (my/terminal--assert-directory)
   (unless (require 'coterm nil t)
     (user-error "cotermをloadできません。package install結果を確認してください"))
   (require 'shell)
   (coterm-mode 1)
   (let ((buffer-name
-         (format "*terminal-test-coterm:%s*"
-                 (my/terminal-test--scope-name)))
+         (format "*terminal-coterm:%s*"
+                 (my/terminal--scope-name)))
         (explicit-shell-file-name
-         (if (my/terminal-test--remote-p)
-             my/terminal-test-remote-shell
+         (if (my/terminal--remote-p)
+             my/terminal-remote-shell
            explicit-shell-file-name))
         ;; 現在の比較対象はbash。別shellを採用する場合はconnection-local
         ;; variablesへ昇格し、hostごとに設定する。
         (explicit-bash-args
-         (if (my/terminal-test--remote-p)
-             my/terminal-test-remote-shell-args
+         (if (my/terminal--remote-p)
+             my/terminal-remote-shell-args
            explicit-bash-args)))
     (shell buffer-name)))
 
-(defun my/terminal-test-disable-coterm ()
+(defun my/terminal-disable-coterm ()
   "Global `coterm-mode'を止め、新規comint bufferへの適用を解除する。"
   (interactive)
   (if (fboundp 'coterm-mode)
@@ -196,20 +197,20 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   (when (and (eq system-type 'darwin)
              (string-prefix-p "x86_64" system-configuration))
     (user-error "eatはRosetta実行のEmacsではTUI出力でフリーズします。C-t (shell) か C-c T m (mistty) を使ってください"))
-  (my/terminal-test--assert-directory)
+  (my/terminal--assert-directory)
   (unless (require 'eat nil t)
     (user-error "eatをloadできません。package install結果を確認してください"))
-  (let* ((buf-name (format "*eat:%s*" (my/terminal-test--scope-name)))
+  (let* ((buf-name (format "*eat:%s*" (my/terminal--scope-name)))
          (existing (get-buffer buf-name)))
     (if (and existing (get-buffer-process existing) (not arg))
         (pop-to-buffer existing)
       (let ((eat-buffer-name buf-name)
-            (shell (if (my/terminal-test--remote-p)
-                       my/terminal-test-remote-shell
+            (shell (if (my/terminal--remote-p)
+                       my/terminal-remote-shell
                    (or explicit-shell-file-name shell-file-name))))
         (eat shell arg)))))
 
-(defun my/terminal-test-eat ()
+(defun my/terminal-eat ()
   "現在地でeatを起動する (`my/eat-here'の試験枠向けエイリアス)。"
   (interactive)
   (call-interactively #'my/eat-here))
@@ -221,11 +222,11 @@ shell (唯一の確実な経路) を使う。接続単位のbuffer名 (*mistty:l
 *shell:local* など) で生存プロセスのbufferを再利用する。
 C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   (interactive "P")
-  (my/terminal-test--assert-directory)
+  (my/terminal--assert-directory)
   (let* ((use-mistty (and (not (eq system-type 'windows-nt))
                           (require 'mistty nil t)))
          (buf-name (format "*%s:%s*" (if use-mistty "mistty" "shell")
-                           (my/terminal-test--scope-name)))
+                           (my/terminal--scope-name)))
          (existing (get-buffer buf-name))
          ;; misttyはプロセスをbuffer-localのmistty-procに持つ
          ;; (get-buffer-processでは取れない) ため生存判定を分ける
@@ -240,9 +241,9 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
         (pop-to-buffer existing)
       (if use-mistty
           (let* ((mistty-shell-command
-                  (if (my/terminal-test--remote-p)
-                      (cons my/terminal-test-remote-shell
-                            my/terminal-test-remote-shell-args)
+                  (if (my/terminal--remote-p)
+                      (cons my/terminal-remote-shell
+                            my/terminal-remote-shell-args)
                     mistty-shell-command))
                  (buf (mistty-create)))
             (when (buffer-live-p buf)
@@ -250,20 +251,20 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
                 (rename-buffer
                  (if arg (generate-new-buffer-name buf-name) buf-name) t))))
         (let ((explicit-shell-file-name
-               (if (my/terminal-test--remote-p)
-                   my/terminal-test-remote-shell
+               (if (my/terminal--remote-p)
+                   my/terminal-remote-shell
                  explicit-shell-file-name)))
           (shell (if arg (generate-new-buffer-name buf-name) buf-name)))))))
 
-(defun my/terminal-test--wsl-program ()
+(defun my/terminal--wsl-program ()
   "起動するwsl.exeの絶対パスを返す。見つからなければuser-error。"
   (or (and (file-executable-p "C:/Windows/System32/wsl.exe")
            "C:/Windows/System32/wsl.exe")
       (executable-find "wsl.exe")
       (user-error "wsl.exeが見つかりません。WSLが有効か確認してください")))
 
-(defun my/terminal-test-wsl (&optional arg)
-  "WSL (`my/terminal-test-wsl-distro') のshellを現在地で開く。
+(defun my/terminal-wsl (&optional arg)
+  "WSL (`my/terminal-wsl-distro') のshellを現在地で開く。
 Windows local専用。C-t (`my/term-here') の既定はGit Bashなので、WSLが必要な
 ときだけこちらを使う。distro単位のbuffer名 (*shell:wsl-Ubuntu* など) で
 生存プロセスのbufferを再利用する。
@@ -271,19 +272,19 @@ C-u (ARG) 付きで新しいbufferを追加する。"
   (interactive "P")
   (unless (eq system-type 'windows-nt)
     (user-error "WSLはWindows専用です。C-t か C-c T m を使ってください"))
-  (my/terminal-test--assert-directory)
+  (my/terminal--assert-directory)
   ;; WSL経由でTRAMP先のfile systemへは行けない (wsl.exeはWindows側のcwdしか
   ;; 引き継がない)。remote bufferからは黙って別の場所を開かず拒否する。
-  (when (my/terminal-test--remote-p)
+  (when (my/terminal--remote-p)
     (user-error "TRAMP bufferからはWSLを起動できません。C-t か C-c T m を使ってください"))
   (require 'shell)
-  (let* ((buf-name (format "*shell:wsl-%s*" my/terminal-test-wsl-distro))
+  (let* ((buf-name (format "*shell:wsl-%s*" my/terminal-wsl-distro))
          (existing (get-buffer buf-name)))
     (if (and existing (get-buffer-process existing) (not arg))
         (pop-to-buffer existing)
       ;; wsl.exeはWindows側のcwd (C:\...) を /mnt/c/... へ自動変換して起動する
       ;; ため、default-directoryをこちら側で変換する必要はない。
-      (let* ((explicit-shell-file-name (my/terminal-test--wsl-program))
+      (let* ((explicit-shell-file-name (my/terminal--wsl-program))
              ;; "-d DISTRO" だけではbufferに何も出ない。Emacsはprocessをpipeで
              ;; 繋ぐためstdinがptyにならず、wsl.exeは既定shellを非対話modeで
              ;; 起動する = PS1を出さない (2026-07-26実測。processは生きていて
@@ -293,7 +294,7 @@ C-u (ARG) 付きで新しいbufferを追加する。"
              ;; python tracebackが数十行流れてpromptが埋もれるだけで、PATHは
              ;; .bashrcとWSL interopで既に揃っている (同日実測)。
              (explicit-wsl.exe-args
-              (list "-d" my/terminal-test-wsl-distro "--" "bash" "-i"))
+              (list "-d" my/terminal-wsl-distro "--" "bash" "-i"))
              ;; WSL側の出力はUTF-8。processのcoding systemは生成時に確定する
              ;; ので、生成後の`set-process-coding-system'では初回出力 (PS1を
              ;; 含む) の復号に間に合わない。必ず生成前にlet-bindする。
@@ -306,7 +307,7 @@ C-u (ARG) 付きで新しいbufferを追加する。"
              (process-environment (cons "WSL_UTF8=1" process-environment)))
         (shell (if arg (generate-new-buffer-name buf-name) buf-name))))))
 
-(defun my/terminal-test--environment-summary ()
+(defun my/terminal--environment-summary ()
   "現在の比較環境を文字列で返す。"
   (format
    (concat "Emacs: %s\n"
@@ -319,21 +320,21 @@ C-u (ARG) 付きで新しいbufferを追加する。"
    emacs-version
    system-type
    default-directory
-   (or (my/terminal-test--remote-p) "local")
+   (or (my/terminal--remote-p) "local")
    (or (file-remote-p default-directory 'method) "-")
    (or (file-remote-p default-directory 'user) "-")
    (or (file-remote-p default-directory 'host) "-")
-   my/terminal-test-remote-shell
-   (mapconcat #'identity my/terminal-test-remote-shell-args " ")
+   my/terminal-remote-shell
+   (mapconcat #'identity my/terminal-remote-shell-args " ")
    (if (locate-library "ghostel") "installed" "missing")
    (if (locate-library "mistty") "installed" "missing")
    (if (locate-library "coterm") "installed" "missing")
    (if (locate-library "eat") "installed" "missing")))
 
-(defun my/terminal-test-report ()
+(defun my/terminal-report ()
   "現在の環境情報と比較チェックリストを編集可能bufferに作る。"
   (interactive)
-  (let ((summary (my/terminal-test--environment-summary))
+  (let ((summary (my/terminal--environment-summary))
         ;; 再実行時に記入済みの採点を消さない。
         (report-buffer (generate-new-buffer "*Terminal Comparison*")))
     (with-current-buffer report-buffer
@@ -362,10 +363,10 @@ C-u (ARG) 付きで新しいbufferを追加する。"
       (text-mode)
       (pop-to-buffer (current-buffer)))))
 
-(defun my/terminal-test-help ()
+(defun my/terminal-help ()
   "Terminal比較試験の使い方と現在の環境を表示する。"
   (interactive)
-  (let ((summary (my/terminal-test--environment-summary)))
+  (let ((summary (my/terminal--environment-summary)))
     (with-help-window "*Terminal Test Help*"
       (princ "Windows/TRAMP terminal comparison\n\n")
       (princ summary)
@@ -385,18 +386,18 @@ C-u (ARG) 付きで新しいbufferを追加する。"
       (princ "常用のC-tは接続単位shell (my/term-here) です。TUIはmistty (C-c T m) が無事です。\n")
       (princ "Windows localのshellはGit Bashにフルパス固定 (inits/win.el)。WSLはC-c T wです。\n"))))
 
-(defvar-keymap my/terminal-test-prefix-map
+(defvar-keymap my/terminal-prefix-map
   :doc "Terminal backend comparison commands."
-  "g" #'my/terminal-test-ghostel
-  "m" #'my/terminal-test-mistty
-  "c" #'my/terminal-test-coterm
-  "e" #'my/terminal-test-eat
-  "w" #'my/terminal-test-wsl
-  "r" #'my/terminal-test-report
-  "x" #'my/terminal-test-disable-coterm
-  "?" #'my/terminal-test-help)
+  "g" #'my/terminal-ghostel
+  "m" #'my/terminal-mistty
+  "c" #'my/terminal-coterm
+  "e" #'my/terminal-eat
+  "w" #'my/terminal-wsl
+  "r" #'my/terminal-report
+  "x" #'my/terminal-disable-coterm
+  "?" #'my/terminal-help)
 
-(keymap-global-set "C-c T" my/terminal-test-prefix-map)
+(keymap-global-set "C-c T" my/terminal-prefix-map)
 
-(provide '31_terminal-test)
-;;; 31_terminal-test.el ends here
+(provide '31_terminal)
+;;; 31_terminal.el ends here

@@ -105,7 +105,7 @@
    treesit-autoのautoload不足は `:require t` で解消済み (2026-07-14)
 5. **diff-hl** — fringe に git 変更表示、magit 連動
 6. **gt** (旧 go-translate、2024年頃改名) — C-x M-t
-7. **terminal比較 (`inits/31_terminal-test.el`)** — 2026-07-14追加。
+7. **terminal比較 (`inits/31_terminal.el`)** — 2026-07-14追加。
    主用途をnative Windows Emacs→TRAMP remote workstationと確定し、既存F12を
    維持したままGhostel (`C-c T g`)、MisTTY (`C-c T m`)、shell+coterm
    (`C-c T c`)を同じremote bufferから比較する。`C-c T r`で採点表、
