@@ -7,7 +7,8 @@
 ;; 主対象:
 ;;   native Windows Emacs -> TRAMP -> POSIX remote workstation
 ;; 副対象:
-;;   Windows local (現在は bash) / macOS local (現在は fish)
+;;   Windows local (Git Bashをフルパス指定。WSLは別コマンド C-c T w) /
+;;   macOS local (現在は fish)
 ;;
 ;; 基本手順:
 ;;   1. 比較したいTRAMPファイルを開き、そのbufferを選択する。
@@ -16,6 +17,7 @@
 ;;        C-c T m  MisTTY
 ;;        C-c T c  shell + coterm
 ;;        C-c T e  eat
+;;        C-c T w  WSL (Windows専用。比較対象外の実用コマンド)
 ;;   3. C-c T r で評価用bufferを作り、候補ごとに結果を記入する。
 ;;   4. C-c T ? で、この説明と既知の制約を再表示する。
 ;;
@@ -39,6 +41,11 @@
 ;;     ではfzf等のTUI連続出力に処理が追いつかずライブロック=フリーズする
 ;;     ためガード中 (2026-07-24実測。arm64ネイティブなら正常、misttyは
 ;;     x86_64でも無事)。C-t は当面 `my/term-here' (接続単位shell)。
+;;   - Windows local: パス無しの "bash" はPATH順で C:\Windows\System32\bash.exe
+;;     (WSL起動プロキシ) を引いてしまうため、`inits/win.el' で Git Bash を
+;;     フルパス指定して `shell-file-name' / `explicit-shell-file-name' に固定
+;;     している。C-t (`my/term-here') のWindows local分岐はそれを継承する。
+;;     WSLが必要なときは C-c T w (`my/terminal-test-wsl') で明示的に起動する。
 ;;
 ;; 採用判定では、見た目より次を優先する:
 ;;   接続成功、再接続、入力遅延、resize、TUI、copy/paste、日本語幅、
@@ -62,6 +69,18 @@
   "`my/terminal-test-remote-shell'へ渡す引数。"
   :type '(repeat string)
   :group 'my/terminal-test)
+
+(defcustom my/terminal-test-wsl-distro "Ubuntu"
+  "`my/terminal-test-wsl'が起動するWSLのdistribution名。"
+  :type 'string
+  :group 'my/terminal-test)
+
+;; shell.el は引数変数を
+;;   (intern-soft (concat "explicit-" (file-name-nondirectory prog) "-args"))
+;; で探すので、wsl.exeをフルパスで起動する場合はこの名前が必要。
+;; 実際の値は `my/terminal-test-wsl' がlet-bindする。
+(defvar explicit-wsl.exe-args nil
+  "`M-x shell'がwsl.exeを起動するときに渡す引数。")
 
 ;; パッケージは起動時にインストールするが、試験コマンドを押すまでloadしない。
 (leaf ghostel
@@ -236,6 +255,57 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
                  explicit-shell-file-name)))
           (shell (if arg (generate-new-buffer-name buf-name) buf-name)))))))
 
+(defun my/terminal-test--wsl-program ()
+  "起動するwsl.exeの絶対パスを返す。見つからなければuser-error。"
+  (or (and (file-executable-p "C:/Windows/System32/wsl.exe")
+           "C:/Windows/System32/wsl.exe")
+      (executable-find "wsl.exe")
+      (user-error "wsl.exeが見つかりません。WSLが有効か確認してください")))
+
+(defun my/terminal-test-wsl (&optional arg)
+  "WSL (`my/terminal-test-wsl-distro') のshellを現在地で開く。
+Windows local専用。C-t (`my/term-here') の既定はGit Bashなので、WSLが必要な
+ときだけこちらを使う。distro単位のbuffer名 (*shell:wsl-Ubuntu* など) で
+生存プロセスのbufferを再利用する。
+C-u (ARG) 付きで新しいbufferを追加する。"
+  (interactive "P")
+  (unless (eq system-type 'windows-nt)
+    (user-error "WSLはWindows専用です。C-t か C-c T m を使ってください"))
+  (my/terminal-test--assert-directory)
+  ;; WSL経由でTRAMP先のfile systemへは行けない (wsl.exeはWindows側のcwdしか
+  ;; 引き継がない)。remote bufferからは黙って別の場所を開かず拒否する。
+  (when (my/terminal-test--remote-p)
+    (user-error "TRAMP bufferからはWSLを起動できません。C-t か C-c T m を使ってください"))
+  (require 'shell)
+  (let* ((buf-name (format "*shell:wsl-%s*" my/terminal-test-wsl-distro))
+         (existing (get-buffer buf-name)))
+    (if (and existing (get-buffer-process existing) (not arg))
+        (pop-to-buffer existing)
+      ;; wsl.exeはWindows側のcwd (C:\...) を /mnt/c/... へ自動変換して起動する
+      ;; ため、default-directoryをこちら側で変換する必要はない。
+      (let* ((explicit-shell-file-name (my/terminal-test--wsl-program))
+             ;; "-d DISTRO" だけではbufferに何も出ない。Emacsはprocessをpipeで
+             ;; 繋ぐためstdinがptyにならず、wsl.exeは既定shellを非対話modeで
+             ;; 起動する = PS1を出さない (2026-07-26実測。processは生きていて
+             ;; uname -o等の応答は返るが、promptだけが永久に出ない)。
+             ;; "-- bash -i" で対話modeを明示するとPS1が出てcomintが成立する。
+             ;; -l (login) は付けない。Ubuntuのmotdとlandscape-sysinfoの
+             ;; python tracebackが数十行流れてpromptが埋もれるだけで、PATHは
+             ;; .bashrcとWSL interopで既に揃っている (同日実測)。
+             (explicit-wsl.exe-args
+              (list "-d" my/terminal-test-wsl-distro "--" "bash" "-i"))
+             ;; WSL側の出力はUTF-8。processのcoding systemは生成時に確定する
+             ;; ので、生成後の`set-process-coding-system'では初回出力 (PS1を
+             ;; 含む) の復号に間に合わない。必ず生成前にlet-bindする。
+             (coding-system-for-read 'utf-8-unix)
+             (coding-system-for-write 'utf-8-unix)
+             ;; wsl.exe自身の診断message (distro名の誤り等) だけは既定で
+             ;; UTF-16LE。上のutf-8指定のまま読むと化けるのでWSL_UTF8=1で
+             ;; UTF-8に揃える。globalな`setenv'は他のprocessにも波及するため
+             ;; ここだけのlet-bindで渡す。
+             (process-environment (cons "WSL_UTF8=1" process-environment)))
+        (shell (if arg (generate-new-buffer-name buf-name) buf-name))))))
+
 (defun my/terminal-test--environment-summary ()
   "現在の比較環境を文字列で返す。"
   (format
@@ -304,6 +374,7 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
       (princ "  C-c T m  新しいMisTTYを現在地で起動\n")
       (princ "  C-c T c  shell + cotermを接続単位で起動/再表示\n")
       (princ "  C-c T e  eatを接続単位で起動/再表示 (emacs-macではフリーズガード中)\n")
+      (princ "  C-c T w  WSLのshellをdistro単位で起動/再表示 (Windows専用)\n")
       (princ "  C-c T r  編集可能な比較表を作成\n")
       (princ "  C-c T x  global coterm-modeを停止\n")
       (princ "  C-c T ?  このHelpを表示\n\n")
@@ -311,7 +382,8 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
       (princ "GhostelのWindows->TRAMPは動的resize未対応です。\n")
       (princ "MisTTYのnative Windows利用は公式確認外なので、失敗も評価結果です。\n")
       (princ "eatはnative Windows非対応、Rosetta実行のEmacsではTUIでフリーズのためガード中です。\n")
-      (princ "常用のC-tは接続単位shell (my/term-here) です。TUIはmistty (C-c T m) が無事です。\n"))))
+      (princ "常用のC-tは接続単位shell (my/term-here) です。TUIはmistty (C-c T m) が無事です。\n")
+      (princ "Windows localのshellはGit Bashにフルパス固定 (inits/win.el)。WSLはC-c T wです。\n"))))
 
 (defvar-keymap my/terminal-test-prefix-map
   :doc "Terminal backend comparison commands."
@@ -319,6 +391,7 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
   "m" #'my/terminal-test-mistty
   "c" #'my/terminal-test-coterm
   "e" #'my/terminal-test-eat
+  "w" #'my/terminal-test-wsl
   "r" #'my/terminal-test-report
   "x" #'my/terminal-test-disable-coterm
   "?" #'my/terminal-test-help)
