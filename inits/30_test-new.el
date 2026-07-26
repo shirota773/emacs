@@ -37,18 +37,62 @@
 ;;     ControlPersist 10m
 ;; =============================================================================
 
+;; ControlMaster 関連の変数はどちらも tramp-sh.el にしかなく、
+;; 片方の Emacs にしか存在しない。バイトコンパイル時の free-vars 警告を
+;; 出さないための宣言だけ置く (値は作らないので boundp 判定に影響しない)。
+(defvar tramp-use-connection-share)          ; Emacs 30.1 以降のみ
+(defvar tramp-use-ssh-controlmaster-options) ; Emacs 29.4 系のみ (30.1 では alias)
+
+(defun my/tramp-disable-connection-share ()
+  "ssh の ControlMaster オプションを TRAMP に足させない。
+~/.ssh/config の Control* 設定をそのまま使うための設定。
+
+★ なぜ boundp 分岐と `with-eval-after-load' が要るか (素の setq では片方が死ぬ)
+  Emacs 30.1 (Tramp 2.7.1) で `tramp-use-ssh-controlmaster-options' は
+  obsolete になり `tramp-use-connection-share' にリネームされた
+  (30.1 tramp-sh.el:105-108)。Emacs 29.4 が同梱する Tramp 2.6 系には
+  新しい名前が一切存在せず、旧名の defcustom だけがある
+  (29.4 tramp-sh.el:103)。よって新しい名前へ素で setq すると、29.4 では
+  誰も読まないゴミ変数が生えるだけで、エラーも警告も出ないまま旧変数が
+  既定値 t のまま残る。macOS の既定は t なので ~/.ssh/config の
+  Control* 設定が Emacs 側の -o ControlMaster=auto 等に上書きされる。
+
+  どちらの名前が生きているかは tramp-sh.el がロードされるまで判定できない。
+  両方の defcustom とも ;;;###tramp-autoload されておらず、
+  (require \\='tramp) の直後は 29.4 / 30.1 のどちらでも両方 boundp が nil
+  (実測)。よって判定は `with-eval-after-load' \\='tramp-sh の中で行う。
+
+  tramp-sh.el のロード「前」に旧名へ setq してはいけない。30.1 では
+  `define-obsolete-variable-alias' (30.1 tramp-sh.el:105-106) が旧名を
+  新名の alias に付け替えるので、先に旧名へ入れた値は捨てられる。
+  これがそもそもリネーム時の落とし穴で、`with-eval-after-load' \\='tramp-sh に
+  置けばこの順序問題自体が消える。
+
+  30.1 では旧名も alias 経由で boundp が真になるので、新しい名前から先に
+  調べること。順序を入れ替えると 30.1 で obsolete な旧名へ書くことになる。
+
+  遅らせても間に合う: この変数を読むのは `tramp-ssh-controlmaster-options'
+  だけで (30.1 tramp-sh.el:4895- / 29.4 tramp-sh.el:4962-)、
+  呼ばれるのは接続を張るとき。tramp-sh のロード完了直後で十分早い。
+
+  なお既定値は両版とも (not (eq system-type \\='windows-nt)) なので、
+  Windows では元から nil。この関数に意味があるのは macOS 側。"
+  (with-eval-after-load 'tramp-sh
+    (cond
+     ;; Emacs 30.1 以降 (Tramp 2.7.1 以降)
+     ((boundp 'tramp-use-connection-share)
+      (setq tramp-use-connection-share nil))
+     ;; Emacs 29.4 (Tramp 2.6 系)。新しい名前が無いため旧名を使う
+     ((boundp 'tramp-use-ssh-controlmaster-options)
+      (setq tramp-use-ssh-controlmaster-options nil)))))
+
 (leaf tramp
   :tag "builtin"
   :config
   (setq tramp-verbose 1)                       ; ログを抑制 (デバッグ時は 6)
   (setq remote-file-name-inhibit-locks t)      ; リモートに .#lock を作らない
-  ;; ~/.ssh/config の ControlMaster 設定をそのまま使う。
-  ;; Emacs 30.1 で tramp-use-ssh-controlmaster-options は obsolete になり
-  ;; tramp-use-connection-share にリネームされた (tramp-sh.el:105-106)。
-  ;; 後継の既定値は (not (eq system-type 'windows-nt)) (tramp-sh.el:108) なので
-  ;; Windows では元から nil。macOS では t なので、ここで nil にする意味がある。
-  ;; tramp-sh.el のロード前に setq しても defcustom は既存値を上書きしない。
-  (setq tramp-use-connection-share nil)
+  ;; ~/.ssh/config の ControlMaster 設定をそのまま使う (詳細は上の関数を参照)
+  (my/tramp-disable-connection-share)
   ;; vc (vc-git) がリモートで git を走らせて固まるのを防ぐ。git 操作は magit で行う
   (setq vc-ignore-dir-regexp
         (format "%s\\|%s" vc-ignore-dir-regexp tramp-file-name-regexp)))
@@ -285,12 +329,34 @@ setq した値も拾う。"
 ;;   補完に出なくなったホストも、フルパスを手で打てば今まで通り繋がる。
 ;;
 ;; (FUNCTION FILE) の FILE にメソッド名を渡している理由:
-;;   tramp-set-completion-function (tramp.el:2190-2235) は FILE を検査し、
-;;   実在ファイル / メソッド名と同一の文字列 / HKEY_CURRENT_USER 始まり /
-;;   DNS-SD サービス名 のいずれでもないエントリを黙って捨てる
-;;   (tramp.el:2213-2229)。読むファイルを持たない独自 parse 関数を登録するには
-;;   FILE にメソッド名そのものを渡すのが正規の逃げ道で、TRAMP 自身も
-;;   tramp-parse-default-user-host などで同じ手を使っている (tramp.el:2240-2248)。
+;;   自前の parse 関数は読むファイルを持たない。一方 TRAMP は補完時に
+;;   (funcall (nth 0 x) (nth 1 x)) と FILE を唯一の引数として渡してくる
+;;   (30.1 tramp.el:2886 / 29.4 tramp.el:3156)。2-3 節の
+;;   my/tramp-parse-cached-connections はメソッド名で候補を絞る必要があるので、
+;;   FILE の位置にメソッド名を入れて受け取る。TRAMP 自身も
+;;   tramp-parse-default-user-host などで同じ手を使っている
+;;   (tramp-get-completion-function)。
+;;
+;; ★ 登録に tramp-set-completion-function を使わない理由 (Emacs 29.4 対応)
+;;   あの関数は FILE を検査し、条件に合わないエントリを黙って捨てる。
+;;   Emacs 30.1 の検査には「FILE がメソッド名と同一の文字列なら通す」分岐が
+;;   あるが (30.1 tramp.el:2226-2227 の ;; Method.)、Emacs 29.4 が同梱する
+;;   Tramp 2.6 系にはその分岐が無く、実在ファイル / HKEY_CURRENT_USER 始まり /
+;;   DNS-SD サービス名 のいずれでもない FILE は (file-exists-p "ssh") が nil に
+;;   なって捨てられる (29.4 tramp.el:2529-2542 で確認)。
+;;   つまり 29.4 であの関数を使うと、下に並べた自前 parse 関数 3 本が全部
+;;   登録されずに消え、エラーも警告も出ないまま ~/.ssh/config だけが残る。
+;;   my/tramp-extra-hosts も 2-3 節のキャッシュ候補も永久に効かなくなる。
+;;
+;;   tramp-completion-function-alist の形式 (METHOD . ((FUNCTION FILE) ...)) と
+;;   読み出し側の tramp-get-completion-function は 29.4 と 30.1 で完全に同一
+;;   (両版のソースを突き合わせて確認) なので、alist を直接組み立てれば
+;;   どちらの Emacs でも同じ結果になる。バージョン分岐を持たない 1 本道に
+;;   できるので、29.4 で実行検証できない経路が生まれないのも利点。
+;;   捨てられていた「~/.ssh/config が無いときは登録しない」判定は、
+;;   tramp-parse-file 側が file-readable-p で守っている (両版とも) ため
+;;   自前で持つ必要が無い。むしろ登録後に ~/.ssh/config を作った場合も
+;;   即座に効くようになり、この節の遅延評価の方針とも揃う。
 ;;
 ;; ★ 遅延評価にしてある理由 (ここを知らずに触ると壊れる)
 ;;   init.el:81-83 は inits/ を全部読んだ「後」に ~/.emacs.local-inits を
@@ -298,14 +364,13 @@ setq した値も拾う。"
 ;;   登録時に my/tramp-extra-hosts の値を焼き込むと、local-inits 側の setq が
 ;;   間に合わず永久に反映されない。そこで parse 関数の中で変数を読む形にし、
 ;;   補完が呼ばれたその瞬間の値を使う。local-inits 側は setq するだけでよく、
-;;   tramp-set-completion-function の再実行も Emacs の再起動も要らない。
+;;   補完ソースの再登録も Emacs の再起動も要らない。
 ;;   同じ理由で ~/.ssh/config の編集も即時反映される。tramp-parse-file には
 ;;   キャッシュが無く、parse は補完のたびにファイルを読み直すため。
 ;; -----------------------------------------------------------------------------
 
 ;; tramp を先読みせずにバイトコンパイルを通すための宣言のみ。実体は tramp.el。
 (declare-function tramp-parse-sconfig "tramp" (filename))
-(declare-function tramp-set-completion-function "tramp" (method function-list))
 (defvar tramp-completion-function-alist)
 
 (defcustom my/tramp-extra-hosts nil
@@ -349,11 +414,17 @@ setq するだけでよく再登録も再起動も要らない。"
   :group 'tramp)
 
 (defvar my/tramp-ssh-completion-methods
-  '("ssh" "sshx" "scp" "scpx" "rsync" "sshfs" "plink" "pscp" "psftp")
+  '("ssh" "sshx" "scp" "scpx" "rsync" "sshfs" "fcp" "plink" "pscp" "psftp")
   "ホスト補完ソースを差し替える TRAMP method 名のリスト。
-既定で tramp-completion-function-alist-ssh を受け取るメソッド
-(tramp-sh.el:462-479 と tramp-sshfs.el:70-71) をそのまま並べたもの。
-tramp-enable-fcp-method で後から有効化する fcp は対象外。")
+既定で tramp-completion-function-alist-ssh を受け取るメソッドを並べたもの。
+Emacs 30.1 では tramp-sh.el:460-479 と tramp-sshfs.el:70-71、
+Emacs 29.4 では tramp-sh.el:493-517 と tramp-sshfs.el:73-74。
+
+fcp を入れてあるのは 29.4 対応。29.4 は fcp を無条件に登録するが
+(29.4 tramp-sh.el:517)、30.1 は tramp-enable-fcp-method を呼ぶまで
+登録しない (30.1 tramp-sh.el:577)。未登録のメソッド名は
+`my/tramp-set-host-completion-sources' 側のガードで素通りするので、
+両版に同じリストを渡してよい。")
 
 (defun my/tramp-ssh-config-file ()
   "ユーザーの ~/.ssh/config の絶対パスを返す。
@@ -387,6 +458,26 @@ macOS など他の OS では ~/ を基準にする。"
           (setq result (append result (tramp-parse-sconfig path))))))
     result))
 
+(defun my/tramp--set-completion-function (method function-list)
+  "METHOD のホスト補完ソースを FUNCTION-LIST に差し替える。
+FUNCTION-LIST は ((FUNCTION FILE) ...) 形式で、TRAMP 本体の
+`tramp-set-completion-function' に渡すものと同じ。
+
+`tramp-set-completion-function' を通さず `tramp-completion-function-alist' を
+直接書き換える。理由は 2-2 節の頭のコメント (★ 登録に
+tramp-set-completion-function を使わない理由) に書いてある。要点は
+Emacs 29.4 の同関数には FILE にメソッド名を許す分岐が無く、自前 parse 関数の
+登録が黙って全部消えること。
+
+置き換えの手順は `tramp-set-completion-function' の末尾と同じで、
+既存の METHOD のエントリを取り除いてから新しいものを載せる。
+FUNCTION-LIST の中身はこちらが組み立てた固定のリストなので、
+あちらが行う functionp / FILE の検査は要らない。"
+  (setq tramp-completion-function-alist
+        (cons (cons method function-list)
+              (delete (assoc method tramp-completion-function-alist)
+                      tramp-completion-function-alist))))
+
 (defun my/tramp-set-host-completion-sources ()
   "ssh 系メソッドのホスト補完ソースを差し替える。
 known_hosts を外し、~/.ssh/config と `my/tramp-extra-hosts' /
@@ -396,11 +487,13 @@ known_hosts を外し、~/.ssh/config と `my/tramp-extra-hosts' /
     (dolist (method my/tramp-ssh-completion-methods)
       ;; 既定ソースが登録されているメソッドだけを対象にする。
       ;; 未登録のメソッド名に対して新規エントリを作らないためのガード。
+      ;; Emacs 29.4 と 30.1 で fcp の登録有無が違うのもここで吸収される。
       (when (assoc method tramp-completion-function-alist)
-        (tramp-set-completion-function
+        (my/tramp--set-completion-function
          method
-         ;; ~/.ssh/config が無い環境ではこの 1 行だけが捨てられ、
-         ;; 残り 3 行は FILE がメソッド名なので必ず生き残る。
+         ;; ~/.ssh/config が無い環境でも登録はそのまま残す。
+         ;; tramp-parse-sconfig の中身 (tramp-parse-file) が file-readable-p で
+         ;; 守られており、読めなければ nil を返すだけ (29.4 / 30.1 とも同じ)。
          `((tramp-parse-sconfig ,config)
            (my/tramp-parse-extra-hosts ,method)
            (my/tramp-parse-extra-ssh-config-files ,method)
@@ -408,9 +501,9 @@ known_hosts を外し、~/.ssh/config と `my/tramp-extra-hosts' /
            (my/tramp-parse-cached-connections ,method)))))))
 
 ;; この関数を実際に呼ぶ with-eval-after-load は 2-3 節の末尾にある。
-;; tramp-set-completion-function は FUNCTION が functionp でないエントリを
-;; 黙って捨てる (tramp.el:2212) ので、登録は上に並べた parse 関数が全部
-;; 定義された後で行わなければならない。
+;; 補完のたびに (funcall (nth 0 x) (nth 1 x)) されるので、登録自体は
+;; parse 関数が未定義でも通るが、順序を追いにくくなるだけなので
+;; 上に並べた parse 関数が全部定義された後で行う。
 
 ;; -----------------------------------------------------------------------------
 ;; 2-3. 接続キャッシュ由来の候補を user@host の 1 候補にまとめ、要らない分を消す
