@@ -1071,23 +1071,46 @@ C-x C-d は候補全部に対してこれを呼ぶので、file-remote-p のま�
   (add-to-list 'consult-dir-sources 'my/consult-dir--remote-source t))
 
 ;; -----------------------------------------------------------------------------
-;; 2-5. リモートバッファのブランチ遅延表示
+;; 2-5. リモートバッファの git 情報 (ブランチ / 変更量) を遅延表示
 ;;
 ;; 2 節冒頭 (leaf tramp) で vc をリモート無効化した代償として、モードラインの
 ;; ブランチ表示が消える。遅さの原因は「開く/保存のたびに vc-git が同期で
 ;; ssh 越しの git を何回も走らせる」ことなので、こうする:
 ;;   - 開いた直後は何もしない (体感ゼロ)
-;;   - アイドルタイマーで git rev-parse --abbrev-ref HEAD を非同期に 1 回だけ実行
+;;   - アイドルタイマーで git を非同期に 1 回だけ実行
 ;;   - 結果を vc-mode にただの文字列として入れる (デフォルトのモードラインは
 ;;     (vc-mode vc-mode) を表示するので、vc 本体が動かなくても文字列は出る)
 ;;
-;; 表示は " Git@BRANCH"。vc 本来の "Git-BRANCH"(未変更)/"Git:BRANCH"(変更あり)
-;; と区別できる記号にして、「状態は見ていない、ブランチ名だけ」だと分かるようにする。
+;; 表示例: " Git@main +12-3 [4]"
+;;   Git@main … ブランチ名。vc 本来の "Git-main"(未変更)/"Git:main"(変更あり)
+;;               と記号を変えてあり、vc ではないと分かるようにしている
+;;   +12-3    … このファイルの HEAD からの変更行数 (追加/削除)
+;;   [4]      … リポジトリ全体の変更ファイル数 (untracked は数えない)
 ;;
-;; キャッシュはディレクトリ単位 (リポジトリルートを求めるには git がもう 1 回
-;; 要るので割り切る)。同じディレクトリの 2 個目以降のファイルはプロセスも起きない。
-;; ブランチ名は滅多に変わらないので取得は 1 回きり。リモート側でブランチを
-;; 切り替えたら M-x my/tramp-branch-refresh で取り直す。
+;; ★ なぜ 3 つの値を 1 コマンドにまとめるか (ここが性能の肝)
+;;   TRAMP の start-file-process は「既存の ssh 接続でコマンドを 1 本流す」
+;;   ものではない。tramp-sh-handle-make-process (tramp-sh.el:3065-) は
+;;   process-name/process-buffer を差し替えたうえで接続を開くので、
+;;   非同期プロセス 1 個につき ssh セッションが 1 本増え、TRAMP のシェル
+;;   初期化 (プロンプト設定・stty・echo $$ など) が毎回走る。ControlMaster が
+;;   効いていても TCP/認証が省けるだけで、この初期化の往復は省けない。
+;;   しかも接続確立部分は同期で、その間 Emacs は待たされる。
+;;   → プロセスを起こす回数がそのままコストなので、git を 3 回呼ぶとしても
+;;     sh -c で 1 プロセスにまとめる。リモート側の git 実行自体は安い
+;;     (この程度の repo なら 3 コマンド合計で 30ms 程度)。
+;;
+;; ★ なぜ定期更新 (タイマー) をしないか
+;;   上のとおり 1 回の更新が「ssh セッション 1 本 + 同期の待ち」なので、
+;;   数十秒おきに回すと編集中に不定期な引っかかりが出る。しかも TRAMP は
+;;   ホスト単位で処理が直列化されるため、裏の git が走っている間は
+;;   C-x C-f などの操作がその後ろに並ぶ。
+;;   数字が変わるのは基本的に自分が保存したときなので、after-save-hook で
+;;   取り直せば十分かつ正確。他端末で入った変更を反映したいときだけ
+;;   M-x my/tramp-branch-refresh を手で叩く。
+;;
+;; キャッシュはファイル単位。変更行数はファイルごとに違うのでディレクトリ単位に
+;; できない。同じ repo の別ファイルを開くと git はもう一度走るが、代わりに
+;; 表示は常にそのファイルのものになる。
 ;;
 ;; ここでの file-remote-p は 2-3 節で避けた話と違い問題ない。あちらは未接続の
 ;; 「候補文字列」に対して呼ぶと tramp-cache-data が汚れるという話で、
@@ -1095,91 +1118,169 @@ C-x C-d は候補全部に対してこれを呼ぶので、file-remote-p のま�
 ;; -----------------------------------------------------------------------------
 
 (defvar my/tramp-branch-idle-delay 1
-  "リモートファイルを開いてからブランチ取得を始めるまでのアイドル秒数。")
+  "git 情報の取得を始めるまでのアイドル秒数。
+開いた直後/保存直後ではなくアイドルまで待つのは、TRAMP のプロセス起動が
+接続確立の間だけ同期で止まるため。操作の手が止まってから走らせる。")
+
+(defcustom my/tramp-branch-show-stats t
+  "非 nil なら変更行数とリポジトリの変更ファイル数も表示する。
+nil ならブランチ名だけになる (git の実行回数は変わらない)。"
+  :type 'boolean
+  :group 'tramp)
 
 (defvar my/tramp-branch--cache (make-hash-table :test #'equal)
-  "リモートディレクトリ → ブランチ名のキャッシュ。
-値は文字列 (ブランチ名)、pending (取得中)、none (リポジトリ外・git 不在) 。")
+  "リモートファイル名 → 表示情報のキャッシュ。
+値は plist (:branch :added :deleted :files)、pending (取得中)、
+none (リポジトリ外・git 不在・接続不可) のいずれか。")
 
-(defun my/tramp-branch--display (dir branch)
-  "DIR を `default-directory' に持つ全ファイルバッファに BRANCH を表示する。"
-  (dolist (buf (buffer-list))
-    (with-current-buffer buf
-      (when (and buffer-file-name (equal default-directory dir))
-        (setq vc-mode (concat " Git@" branch))
-        (force-mode-line-update)))))
+;; 区切りに @@ の行を挟んで 3 ブロックを 1 回の出力で受け取る。
+;;
+;; exec 2>/dev/null はリポジトリ外のときの git のエラー文を混ぜないため
+;; (stderr は start-file-process だと同じバッファに来てしまう)。
+;; git diff に HEAD を付けるのは index に上げた分も変更として数えるため。
+;; git status の -uno は untracked を数えない指定。作業ツリー全体を歩く
+;; untracked 探索が status の一番重い部分なので、大きい repo では効く。
+;;
+;; --no-pager と color.ui=false が要る理由 (実測で踏んだ):
+;;   プロセスに pty が付くと git は「端末に出力している」と判断し、
+;;   ページャを起動して色も付ける。すると出力に less の制御シーケンスが
+;;   混ざり ("\e[?1h=" や "\e[K\e[?1l>")、区切りの @@ が行頭に来なくなって
+;;   パースが必ず失敗する。--fetch 側で pty を切って (process-connection-type)
+;;   根本を断ってあるが、リモートの git 設定が pager.diff や
+;;   color.ui=always を強制している場合に備えてコマンド側でも殺しておく。
+(defconst my/tramp-branch--command
+  (concat "exec 2>/dev/null; "
+          "git --no-pager rev-parse --abbrev-ref HEAD; echo @@; "
+          "git --no-pager -c color.ui=false diff HEAD --numstat -- %s; echo @@; "
+          "git --no-pager status --porcelain -uno | wc -l")
+  "git 情報を 1 度に取るシェルコマンド。%s にファイル名が入る。")
+
+(defun my/tramp-branch--parse (output)
+  "git の OUTPUT を plist にする。解釈できなければ nil を返す。"
+  (let ((parts (split-string output "^@@$")))
+    (when (= (length parts) 3)
+      (let* ((branch (string-trim (nth 0 parts)))
+             (numstat (string-trim (nth 1 parts)))
+             (files (string-to-number (string-trim (nth 2 parts))))
+             ;; numstat は "追加\t削除\tパス"。変更が無ければ空。
+             ;; バイナリは "-" が入るが string-to-number が 0 にしてくれる。
+             (fields (unless (string-empty-p numstat)
+                       (split-string numstat "[ \t\n]+" t))))
+        (unless (string-empty-p branch)
+          (list :branch  branch
+                :added   (if fields (string-to-number (nth 0 fields)) 0)
+                :deleted (if fields (string-to-number (nth 1 fields)) 0)
+                :files   files))))))
+
+(defun my/tramp-branch--format (info)
+  "INFO (plist) をモードラインに出す文字列にする。"
+  (let ((added   (plist-get info :added))
+        (deleted (plist-get info :deleted))
+        (files   (plist-get info :files)))
+    (concat " Git@" (plist-get info :branch)
+            (when my/tramp-branch-show-stats
+              (concat (when (or (> added 0) (> deleted 0))
+                        (format " +%d-%d" added deleted))
+                      (when (> files 0)
+                        (format " [%d]" files)))))))
+
+(defun my/tramp-branch--display (file info)
+  "FILE を訪問しているバッファのモードラインに INFO を反映する。"
+  (let ((text (my/tramp-branch--format info)))
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (equal buffer-file-name file)
+          (setq vc-mode text)
+          (force-mode-line-update))))))
 
 (defun my/tramp-branch--sentinel (proc _event)
   "git の終了を受けてキャッシュとモードラインを更新する。"
   (when (memq (process-status proc) '(exit signal))
-    (let ((dir (process-get proc 'my/tramp-branch-dir))
+    (let ((file   (process-get proc 'my/tramp-branch-file))
           (report (process-get proc 'my/tramp-branch-report))
-          (buf (process-buffer proc)))
+          (buf    (process-buffer proc)))
       (unwind-protect
-          ;; split-string の OMIT-NULLS で空行が落ちるので branch は nil か非空文字列
-          (let ((branch (and (buffer-live-p buf)
-                             (zerop (process-exit-status proc))
-                             (with-current-buffer buf
-                               (car (split-string (buffer-string) "\n" t))))))
-            (cond (branch
-                   (puthash dir branch my/tramp-branch--cache)
-                   (my/tramp-branch--display dir branch)
+          (let* ((output (and (buffer-live-p buf)
+                              (with-current-buffer buf (buffer-string))))
+                 (info (and output (my/tramp-branch--parse output))))
+            (cond (info
+                   (puthash file info my/tramp-branch--cache)
+                   (my/tramp-branch--display file info)
                    (when report
-                     (message "my/tramp-branch: %s → Git@%s" dir branch)))
-                  ;; リポジトリ外 (exit 128)・git 不在 (exit 127) など。再試行しない
-                  (t (puthash dir 'none my/tramp-branch--cache)
+                     (message "my/tramp-branch: %s →%s"
+                              file (my/tramp-branch--format info))))
+                  ;; リポジトリ外・git 不在など。再試行はしない
+                  (t (puthash file 'none my/tramp-branch--cache)
                      (when report
                        (message "my/tramp-branch: git 失敗 (exit %s): %s"
                                 (process-exit-status proc)
-                                (if (buffer-live-p buf)
-                                    (string-trim (with-current-buffer buf (buffer-string)))
-                                  "(出力なし)"))))))
+                                (if output (string-trim output) "(出力なし)"))))))
         (when (buffer-live-p buf)
           (kill-buffer buf))))))
 
-(defun my/tramp-branch--fetch (dir &optional report)
-  "DIR のブランチ名を非同期に取得する。取得済み/取得中なら何もしない。
+(defun my/tramp-branch--fetch (file &optional report)
+  "FILE の git 情報を非同期に取得する。取得済み/取得中なら何もしない。
 REPORT が非 nil なら結果をエコーエリアに報告する (refresh 用)。"
-  (unless (gethash dir my/tramp-branch--cache)
-    (puthash dir 'pending my/tramp-branch--cache)
+  (unless (gethash file my/tramp-branch--cache)
+    (puthash file 'pending my/tramp-branch--cache)
     (condition-case err
-        (let* ((default-directory dir)
+        (let* ((default-directory (file-name-directory file))
+               ;; pty を付けない。付けると git がページャと色を有効にして
+               ;; 出力に制御シーケンスが混ざる (--command のコメント参照)。
+               ;; TRAMP 側も connection-type が pipe なら CR→LF 変換を
+               ;; 行わない (tramp-sh.el:3099-) ので、解析にはこちらが素直。
+               (process-connection-type nil)
                (proc (start-file-process
                       "my/tramp-branch" (generate-new-buffer " *my/tramp-branch*")
-                      "git" "rev-parse" "--abbrev-ref" "HEAD")))
-          (process-put proc 'my/tramp-branch-dir dir)
+                      "sh" "-c"
+                      (format my/tramp-branch--command
+                              (shell-quote-argument
+                               (file-name-nondirectory file))))))
+          (process-put proc 'my/tramp-branch-file file)
           (process-put proc 'my/tramp-branch-report report)
           (set-process-sentinel proc #'my/tramp-branch--sentinel))
       ;; 接続が切れている等でプロセスを起こせない場合。再試行しない
-      (error (puthash dir 'none my/tramp-branch--cache)
+      (error (puthash file 'none my/tramp-branch--cache)
              (when report
                (message "my/tramp-branch: プロセス起動に失敗: %S" err))))))
 
+(defun my/tramp-branch--schedule (file)
+  "FILE の git 情報取得をアイドル時に予約する。"
+  (run-with-idle-timer my/tramp-branch-idle-delay nil
+                       #'my/tramp-branch--fetch file))
+
 (defun my/tramp-branch--after-find-file ()
-  "`find-file-hook': リモートファイルならブランチ名を遅延表示する。"
+  "`find-file-hook': リモートファイルなら git 情報を遅延表示する。"
   (when (and buffer-file-name (file-remote-p buffer-file-name))
-    (let ((cached (gethash default-directory my/tramp-branch--cache)))
-      (cond ((stringp cached)                    ; 取得済み → 即表示
-             (setq vc-mode (concat " Git@" cached)))
-            ((null cached)                       ; 未取得 → アイドル時に取得
-             (run-with-idle-timer my/tramp-branch-idle-delay nil
-                                  #'my/tramp-branch--fetch default-directory))
+    (let ((cached (gethash buffer-file-name my/tramp-branch--cache)))
+      (cond ((consp cached)                     ; 取得済み → 即表示
+             (setq vc-mode (my/tramp-branch--format cached)))
+            ((null cached)                      ; 未取得 → アイドル時に取得
+             (my/tramp-branch--schedule buffer-file-name))
             ;; pending 中に開いたバッファは sentinel の --display が拾う。
             ;; none は何もしない (再試行は my/tramp-branch-refresh で)
             ))))
 
+(defun my/tramp-branch--after-save ()
+  "`after-save-hook': 保存で変わった変更量を取り直す。
+保存処理そのものを待たせないよう、取得はアイドルまで遅らせる。"
+  (when (and buffer-file-name (file-remote-p buffer-file-name))
+    (remhash buffer-file-name my/tramp-branch--cache)
+    (my/tramp-branch--schedule buffer-file-name)))
+
 (add-hook 'find-file-hook #'my/tramp-branch--after-find-file)
+(add-hook 'after-save-hook #'my/tramp-branch--after-save)
 
 (defun my/tramp-branch-refresh ()
-  "現在のバッファのディレクトリのブランチ表示を取り直し、結果を報告する。
-リモート側でブランチを切り替えた後や、表示されないときの切り分けに使う。"
+  "現在のバッファの git 情報を取り直し、結果を報告する。
+リモート側でブランチを切り替えた後、他端末で入った変更を反映したいとき、
+表示が出ないときの切り分けに使う。"
   (interactive)
   (unless (and buffer-file-name (file-remote-p buffer-file-name))
     (user-error "リモートファイルのバッファで実行してください"))
-  (remhash default-directory my/tramp-branch--cache)
-  (message "my/tramp-branch: %s で git を実行中..." default-directory)
-  (my/tramp-branch--fetch default-directory t))
-
+  (remhash buffer-file-name my/tramp-branch--cache)
+  (message "my/tramp-branch: %s で git を実行中..." buffer-file-name)
+  (my/tramp-branch--fetch buffer-file-name t))
 ;; -----------------------------------------------------------------------------
 ;; 2-6. リモートファイルは既定で read-only (view-mode) で開く
 ;;
