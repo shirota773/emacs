@@ -1070,6 +1070,116 @@ C-x C-d は候補全部に対してこれを呼ぶので、file-remote-p のま�
 (with-eval-after-load 'consult-dir
   (add-to-list 'consult-dir-sources 'my/consult-dir--remote-source t))
 
+;; -----------------------------------------------------------------------------
+;; 2-5. リモートバッファのブランチ遅延表示
+;;
+;; 2 節冒頭 (leaf tramp) で vc をリモート無効化した代償として、モードラインの
+;; ブランチ表示が消える。遅さの原因は「開く/保存のたびに vc-git が同期で
+;; ssh 越しの git を何回も走らせる」ことなので、こうする:
+;;   - 開いた直後は何もしない (体感ゼロ)
+;;   - アイドルタイマーで git rev-parse --abbrev-ref HEAD を非同期に 1 回だけ実行
+;;   - 結果を vc-mode にただの文字列として入れる (デフォルトのモードラインは
+;;     (vc-mode vc-mode) を表示するので、vc 本体が動かなくても文字列は出る)
+;;
+;; 表示は " Git@BRANCH"。vc 本来の "Git-BRANCH"(未変更)/"Git:BRANCH"(変更あり)
+;; と区別できる記号にして、「状態は見ていない、ブランチ名だけ」だと分かるようにする。
+;;
+;; キャッシュはディレクトリ単位 (リポジトリルートを求めるには git がもう 1 回
+;; 要るので割り切る)。同じディレクトリの 2 個目以降のファイルはプロセスも起きない。
+;; ブランチ名は滅多に変わらないので取得は 1 回きり。リモート側でブランチを
+;; 切り替えたら M-x my/tramp-branch-refresh で取り直す。
+;;
+;; ここでの file-remote-p は 2-3 節で避けた話と違い問題ない。あちらは未接続の
+;; 「候補文字列」に対して呼ぶと tramp-cache-data が汚れるという話で、
+;; ここで呼ぶ相手は接続済みバッファの buffer-file-name。
+;; -----------------------------------------------------------------------------
+
+(defvar my/tramp-branch-idle-delay 1
+  "リモートファイルを開いてからブランチ取得を始めるまでのアイドル秒数。")
+
+(defvar my/tramp-branch--cache (make-hash-table :test #'equal)
+  "リモートディレクトリ → ブランチ名のキャッシュ。
+値は文字列 (ブランチ名)、pending (取得中)、none (リポジトリ外・git 不在) 。")
+
+(defun my/tramp-branch--display (dir branch)
+  "DIR を `default-directory' に持つ全ファイルバッファに BRANCH を表示する。"
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (and buffer-file-name (equal default-directory dir))
+        (setq vc-mode (concat " Git@" branch))
+        (force-mode-line-update)))))
+
+(defun my/tramp-branch--sentinel (proc _event)
+  "git の終了を受けてキャッシュとモードラインを更新する。"
+  (when (memq (process-status proc) '(exit signal))
+    (let ((dir (process-get proc 'my/tramp-branch-dir))
+          (report (process-get proc 'my/tramp-branch-report))
+          (buf (process-buffer proc)))
+      (unwind-protect
+          ;; split-string の OMIT-NULLS で空行が落ちるので branch は nil か非空文字列
+          (let ((branch (and (buffer-live-p buf)
+                             (zerop (process-exit-status proc))
+                             (with-current-buffer buf
+                               (car (split-string (buffer-string) "\n" t))))))
+            (cond (branch
+                   (puthash dir branch my/tramp-branch--cache)
+                   (my/tramp-branch--display dir branch)
+                   (when report
+                     (message "my/tramp-branch: %s → Git@%s" dir branch)))
+                  ;; リポジトリ外 (exit 128)・git 不在 (exit 127) など。再試行しない
+                  (t (puthash dir 'none my/tramp-branch--cache)
+                     (when report
+                       (message "my/tramp-branch: git 失敗 (exit %s): %s"
+                                (process-exit-status proc)
+                                (if (buffer-live-p buf)
+                                    (string-trim (with-current-buffer buf (buffer-string)))
+                                  "(出力なし)"))))))
+        (when (buffer-live-p buf)
+          (kill-buffer buf))))))
+
+(defun my/tramp-branch--fetch (dir &optional report)
+  "DIR のブランチ名を非同期に取得する。取得済み/取得中なら何もしない。
+REPORT が非 nil なら結果をエコーエリアに報告する (refresh 用)。"
+  (unless (gethash dir my/tramp-branch--cache)
+    (puthash dir 'pending my/tramp-branch--cache)
+    (condition-case err
+        (let* ((default-directory dir)
+               (proc (start-file-process
+                      "my/tramp-branch" (generate-new-buffer " *my/tramp-branch*")
+                      "git" "rev-parse" "--abbrev-ref" "HEAD")))
+          (process-put proc 'my/tramp-branch-dir dir)
+          (process-put proc 'my/tramp-branch-report report)
+          (set-process-sentinel proc #'my/tramp-branch--sentinel))
+      ;; 接続が切れている等でプロセスを起こせない場合。再試行しない
+      (error (puthash dir 'none my/tramp-branch--cache)
+             (when report
+               (message "my/tramp-branch: プロセス起動に失敗: %S" err))))))
+
+(defun my/tramp-branch--after-find-file ()
+  "`find-file-hook': リモートファイルならブランチ名を遅延表示する。"
+  (when (and buffer-file-name (file-remote-p buffer-file-name))
+    (let ((cached (gethash default-directory my/tramp-branch--cache)))
+      (cond ((stringp cached)                    ; 取得済み → 即表示
+             (setq vc-mode (concat " Git@" cached)))
+            ((null cached)                       ; 未取得 → アイドル時に取得
+             (run-with-idle-timer my/tramp-branch-idle-delay nil
+                                  #'my/tramp-branch--fetch default-directory))
+            ;; pending 中に開いたバッファは sentinel の --display が拾う。
+            ;; none は何もしない (再試行は my/tramp-branch-refresh で)
+            ))))
+
+(add-hook 'find-file-hook #'my/tramp-branch--after-find-file)
+
+(defun my/tramp-branch-refresh ()
+  "現在のバッファのディレクトリのブランチ表示を取り直し、結果を報告する。
+リモート側でブランチを切り替えた後や、表示されないときの切り分けに使う。"
+  (interactive)
+  (unless (and buffer-file-name (file-remote-p buffer-file-name))
+    (user-error "リモートファイルのバッファで実行してください"))
+  (remhash default-directory my/tramp-branch--cache)
+  (message "my/tramp-branch: %s で git を実行中..." default-directory)
+  (my/tramp-branch--fetch default-directory t))
+
 ;; =============================================================================
 ;; 3. popper — ポップアップ系バッファを下部に集約し、1キーでトグル/巡回
 ;;   C-`   : ポップアップの表示/非表示

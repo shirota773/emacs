@@ -26,6 +26,12 @@
   (補完ソース 4 本登録、`tramp-use-ssh-controlmaster-options` の boundp 分岐、
   `my/tramp-extra-hosts`、`C-x C-d` の Remote dirs ソース、byte-compile 新規警告なし)
 
+- 2-5 節 (リモートバッファのブランチ遅延表示、2026-07-27 追加):
+  実リモートで検証済み (同日)。vc をリモート無効化した代償のブランチ非表示を、
+  開いた後に非同期 `git rev-parse` で補い `Git@ブランチ名` と表示する。
+  ブランチ切替後や表示されないときは `M-x my/tramp-branch-refresh`
+  (結果をエコーエリアに報告するので切り分けにも使う)
+
 未検証で残っているもの:
 
 - 実 SSH 接続後に `user@host` が 1 候補にまとまるか (mac では実接続で未確認)
