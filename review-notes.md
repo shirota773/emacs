@@ -156,6 +156,23 @@
      厳密なフィルタが欲しくなったら試す
    - 旧データ: var/tabspace-sessions/ と var/tabspaces-session.eld は
      動作確認後に手動削除してよい (テストデータのみ)
+   2026-07-28 (実機で判明した2点、いずれも対応済み):
+   - **タブ bookmark にゴミが溜まる**。終了時の自動保存がタブに居るバッファを
+     丸ごと拾うため、テスト保存した "emacs" bookmark の中身が
+     `*scratch*` / `" *Minibuf-1*"` / `*Bookmark List*` だけになり、起動の
+     たびに中身の無いタブが復元されていた (起動時に `*scratch*` タブが出る
+     原因)。`bufferlo-bookmark-buffers-exclude-filters` で再生成できる
+     バッファと内部バッファ (先頭が空白の名前) を除外。既存の "emacs"
+     bookmark は削除した
+   - **重複 load のプロンプトが不親切**。既定の
+     `bufferlo-bookmark-tab-duplicate-policy` = `'prompt` は
+     "already active: Allow, Clear, Ignore, Raise" を説明無しで出す。
+     bufferlo の load は必ず新しいタブを作る (= 今のタブの reload ではない)
+     ので、この場面でやりたいのはほぼ「そのタブに行く」。`'raise` に固定した。
+     開き直したいときはタブを閉じてから load する
+   - 何も保存していない状態なら復元対象ゼロで起動画面のタブ1枚だけになる。
+     終了時の 'all 保存も「既に bookmark 名が付いたタブ」を更新するだけで、
+     新しい bookmark は作らない
 
 ## 8. 未対応・保留リスト(次回レビューの候補)
 

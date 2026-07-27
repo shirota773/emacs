@@ -64,6 +64,14 @@
   (bufferlo-bookmarks-save-at-emacs-exit . 'all)
   (bufferlo-bookmarks-auto-save-interval . 600)
   (bufferlo-bookmark-tab-save-on-close . 'when-bookmarked)
+  ;; 既に開いているタブ bookmark をもう一度 load したときの動作 (2026-07-28)
+  ;; 既定の 'prompt は "already active: Allow, Clear, Ignore, Raise" という
+  ;; 選択を毎回出すが、説明が無く何を選ぶべきか分からない。
+  ;; そもそも bufferlo の load は必ず新しいタブを作るので「今のタブを
+  ;; reload する」機能ではない。既に開いているものを load しようとした時点で
+  ;; やりたいのはほぼ「そのタブに行く」なので raise (既存タブへ切り替え) に固定。
+  ;; 保存内容で開き直したいときは、そのタブを閉じてから load する。
+  (bufferlo-bookmark-tab-duplicate-policy . 'raise)
   ;; タブ bookmark に入れないバッファ (2026-07-28)
   ;; 既存の "emacs" bookmark の中身が *scratch* / " *Minibuf-1*" /
   ;; *Bookmark List* だけになっていた。終了時の自動保存がその時点で
