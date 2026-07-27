@@ -80,6 +80,42 @@ read-only 表示と同じフレームパラメータを奪い合うことにな�
 GUI での実表示は未確認 (バッチでは色の決定と `set-cursor-color` の
 呼ばれ方まで検証済み)。
 
+## 05_save-buffers.el — 未保存バッファの一括処理 (2026-07-27 追加・試用中)
+
+終了時や `M-x grep` (compile 系) で走る `save-some-buffers` が未保存バッファを
+1 個ずつ聞いてくるのをやめ、**対象が 2 個以上のときだけ dired 風の一覧
+`*Unsaved Buffers*` に差し替える**。件数の内訳とキーの説明はヘッダー行に
+常時出る (`保存N 破棄N 無視N / 全N`)。
+
+| キー | 動作 |
+|---|---|
+| `s` / `d` / `u` | 保存マーク / 破棄 (kill) マーク / 解除 |
+| `S` / `D` / `U` | 全部にマーク / 全解除 |
+| `x` | マークを実行して先へ進む (破棄がある場合のみ 1 回確認) |
+| `q` / `C-g` | 中止 (終了や grep そのものを取りやめる) |
+| `RET` / `=` | 別ウィンドウに表示 / ファイルとの差分 |
+| `j` / `k` | 上下移動 (Buffer-menu・grep-mode と同じ) |
+
+**先へ進めるのは `x` だけ**。マークを付けずに `x` を押せば「全部そのまま
+無視して先へ」になる。`q` を「無視して続行」にすると、終了しようとして
+`q` を押した人から見て Emacs がいきなり終わるように見えるため中止に割り当てた
+(2026-07-27 の実使用で指摘を受けて変更)。素の `C-g` (`keyboard-quit`) は
+再帰編集を抜けないので、モードのキーマップで `abort-recursive-edit` に潰してある。
+一覧から他のバッファへ移ってしまったときの最後の逃げ道は `C-]`。
+
+`M-x my/list-unsaved-buffers` で単独でも呼べる。やめたいときは
+`my/unsaved-buffers-menu-enabled` を nil に、常に一覧にしたいときは
+`my/unsaved-buffers-threshold` を 1 に。
+
+- 実装上の注意は冒頭 Commentary 参照 (`recursive-edit` を使う理由、
+  元の `save-some-buffers` を潰さず後段で呼び直す理由)
+- **無視を残したまま `x` で進んだ場合、終了時に "Modified buffers exist;
+  exit anyway?" が 1 回だけ出る**。これは Emacs 側の最終確認なので残してある
+- バッチ検証済み: 候補収集 / マーク表示・集計 / `x` の保存・kill・無視の
+  振り分け / 無視分が元関数に二重で聞かれないこと / 中止が呼び出し元まで伝わり
+  元関数が呼ばれないこと / 中止時の後片付け / byte-compile 警告なし。
+  **GUI での操作感 (一覧の出方、`recursive-edit` からの復帰) は未確認**
+
 ## 31_terminal.el — terminal backend の比較検証中
 
 常用の terminal 設定 (`C-t` → `my/term-here`) と、Ghostel / MisTTY /
