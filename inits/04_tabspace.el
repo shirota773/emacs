@@ -64,6 +64,20 @@
   (bufferlo-bookmarks-save-at-emacs-exit . 'all)
   (bufferlo-bookmarks-auto-save-interval . 600)
   (bufferlo-bookmark-tab-save-on-close . 'when-bookmarked)
+  ;; タブ bookmark に入れないバッファ (2026-07-28)
+  ;; 既存の "emacs" bookmark の中身が *scratch* / " *Minibuf-1*" /
+  ;; *Bookmark List* だけになっていた。終了時の自動保存がその時点で
+  ;; タブに居るバッファを丸ごと拾うため、こういう再生成できるバッファや
+  ;; 内部バッファまで保存され、起動のたびに中身の無いタブが復元されていた。
+  ;; 先頭が空白のバッファ名は Emacs の内部バッファ (本来保存対象ではない)。
+  (bufferlo-bookmark-buffers-exclude-filters
+   . '("\\` "                            ; 内部バッファ ( *Minibuf-1* など)
+       "\\`\\*scratch\\*\\'"
+       "\\`\\*Bookmark List\\*\\'"
+       "\\`\\*Messages\\*\\'"
+       "\\`\\*Warnings\\*\\'"
+       "\\`\\*Compile-Log\\*\\'"
+       "\\`\\*Help\\*\\'"))
   :bind
   (("C-f" . hydra-buffer-primary/body)
    ("C-j" . bufferlo-switch-to-buffer))
