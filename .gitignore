@@ -38,3 +38,6 @@ backups/
 # no-littering directories
 var/
 etc/
+
+# treesit-install-language-grammar の出力先 (バイナリ・環境依存)
+tree-sitter/

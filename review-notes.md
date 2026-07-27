@@ -103,6 +103,12 @@
    にくい可能性 → 不評ならキー変更
 4. **treesit-auto + eglot** — LSP サーバーは別途 (pyright, typescript-language-server)。
    treesit-autoのautoload不足は `:require t` で解消済み (2026-07-14)
+   2026-07-27: **treesit の grammar は現状読めないと確定**。Emacs.app が
+   x86_64 (Rosetta) なのに、そこから spawn される `/usr/bin/cc` はネイティブ
+   実行のため grammar が arm64 で生成される。dlopen で直接確認:
+   `incompatible architecture (have 'arm64', need 'x86_64')`。
+   下記 7 の eat と同じ Rosetta 由来で、arm64 Emacs 移行が根治。
+   それまで `treesit-auto-install` は nil (インストール提案を出さない)
 5. **diff-hl** — fringe に git 変更表示、magit 連動
 6. **gt** (旧 go-translate、2024年頃改名) — C-x M-t
 7. **terminal比較 (`inits/31_terminal.el`)** — 2026-07-14追加。

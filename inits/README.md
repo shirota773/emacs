@@ -15,7 +15,7 @@
 | 1 | exec-path-from-shell | 試用中 (macOS のみ) |
 | 2 | TRAMP チューニング (2-1〜2-6) | 検証済み (下記) |
 | 3 | popper | 試用中 |
-| 4 | treesit / eglot | 試用中 |
+| 4 | treesit / eglot | eglot 試用中。treesit は Rosetta のため grammar 不可 (下記) |
 | 5 | diff-hl | 試用中 |
 | 6 | go-translate (gt) | 試用中。byte-compile で警告 5 件が既知 |
 
@@ -53,6 +53,31 @@
 - 仕事の Linux ホストへの Windows からの TRAMP 接続。ハングしたら
   `my/tramp-windows-force-pty-hosts` に正規表現を足す。それでもダメなら
   `my/tramp-windows-login-shell-hosts` にも足す (詳細は 2-1 節のコメント)
+
+### セクション 4 (treesit) — grammar が読めない (2026-07-27 確定)
+
+`treesit-auto-install` を `'prompt` にしていたため、grammar の無い言語の
+ファイルを開くたびにインストール確認が出て、`y` を押すと同期の
+git clone + コンパイルで数十秒固まり、最後に必ず警告で失敗していた。
+
+原因は**アーキテクチャの不一致**。`Emacs.app` は x86_64 (Apple Silicon 上の
+Rosetta 実行) なのに、そこから spawn された `/usr/bin/cc` はネイティブに
+動くため grammar が arm64 で生成される。dlopen で直接確認済み:
+
+```
+mach-o file, but is an incompatible architecture (have 'arm64', need 'x86_64')
+```
+
+x86_64 プロセスからは開けず、arm64 プロセスからは開ける。**今の Emacs では
+何度入れ直しても読めない**。eat のフリーズと同じ Rosetta 由来の問題で、
+根治は arm64 ネイティブ Emacs への移行 (review-notes.md 7-7、
+`/opt/homebrew/opt/emacs-plus@29` がビルド済み)。
+
+対応: `treesit-auto-install` を nil にして提案自体をやめた。grammar が
+無い言語では treesit-auto が黙って元のモード (sh-mode 等) を使うので実害なし。
+読める環境に移ったら `M-x treesit-auto-install-all` で明示的に入れる。
+`~/.emacs.d/tree-sitter/` の arm64 grammar は移行後に使えるので残してある
+(git 管理外にした)。
 
 ### 積み残し
 

@@ -1374,14 +1374,35 @@ file-exists-p の追加コストは無視できる。find-file がここに来�
 ;;   python: pip install pyright  /  typescript: npm i -g typescript-language-server
 ;; =============================================================================
 
+;; ★ treesit-auto-install を 'prompt にしない (2026-07-27)
+;;   'prompt にしていると、grammar の無い言語のファイルを開くたびに
+;;   "Tree-sitter grammar for X is missing. Install it?" が出る。y を押すと
+;;   git clone + コンパイルが同期で走って Emacs が数十秒止まり、そのうえ
+;;   macOS では最後に必ず警告が出て失敗する。原因はアーキテクチャの不一致:
+;;
+;;     Emacs.app             … x86_64 (Apple Silicon 上で Rosetta 実行)
+;;     生成される grammar    … arm64 (spawn された /usr/bin/cc がネイティブで動くため)
+;;
+;;   dlopen で直接確認済み (2026-07-27):
+;;     "mach-o file, but is an incompatible architecture (have 'arm64',
+;;      need 'x86_64')"
+;;   x86_64 プロセスからは開けず、arm64 プロセスからは開ける。
+;;   つまり **今の Emacs では何度入れ直しても grammar は絶対に読めない**。
+;;   eat のフリーズ (31_terminal.el) と同じ Rosetta 由来の問題で、
+;;   根治は arm64 ネイティブ Emacs への移行 (review-notes.md 7-7 参照)。
+;;
+;;   そこで自動インストールは切る (nil = 提案もしない)。treesit-auto は
+;;   grammar が無い言語では黙って元のモード (sh-mode 等) のままにするので、
+;;   実害はプロンプトが出なくなることだけ。arm64 Emacs に移ったあと、
+;;   あるいは grammar が読める環境では M-x treesit-auto-install-all で
+;;   明示的にまとめて入れる。
 (leaf treesit-auto
   :ensure t
   ;; 現行版のautoloadには `global-treesit-auto-mode' のautoload定義が
   ;; 含まれないため、modeを有効化する前に本体を明示ロードする。
   :require t
-  :custom
-  (treesit-auto-install . 'prompt)      ; grammar が無いときに確認してインストール
   :config
+  (setq treesit-auto-install nil)
   (global-treesit-auto-mode))
 
 (leaf eglot
