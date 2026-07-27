@@ -1180,6 +1180,54 @@ REPORT が非 nil なら結果をエコーエリアに報告する (refresh 用)
   (message "my/tramp-branch: %s で git を実行中..." default-directory)
   (my/tramp-branch--fetch default-directory t))
 
+;; -----------------------------------------------------------------------------
+;; 2-6. リモートファイルは既定で read-only (view-mode) で開く
+;;
+;; 狙い: リモートは「まず読む」場所。ローカルと同じ気軽さで書けてしまうと
+;;   うっかり編集の被害が大きいので、開いた時点で一段ブレーキを掛けておく。
+;;   編集したくなったら C-x C-q を 1 回。
+;;
+;; read-only-mode ではなく view-mode を使う理由:
+;;   1. C-x C-q (94_keybinds.el:31) は view-mode に割り当ててある。
+;;      read-only-mode で読み取り専用にすると、C-x C-q はまだ off の
+;;      view-mode を「有効化」するだけで読み取り専用のまま。編集に移るのに
+;;      2 回押すことになる。最初から view-mode で開けば 1 回で済む。
+;;   2. 02_packages.el の viewer 設定で view-mode に vim 風の移動キー
+;;      (j/k/b/u など) を入れてあるので、読むだけなら view-mode の方が速い。
+;;   3. 見た目は 03_view-visual.el が buffer-read-only 全般を見ているので、
+;;      read-only-mode でも view-mode でも同じ (背景色 + カーソル赤) になる。
+;;
+;; viewer.el の view-mode-by-default-regexp (02_packages.el:20) に TRAMP の
+;; パターンを足す手もあるが、あれは正規表現 1 本で拡張子の話と混ざって
+;; 読みにくくなるうえ、下の「新規作成は除外」を表現できないので独立させた。
+;;
+;; 書込不可ファイルの扱い:
+;;   viewer-stay-in-setup (02_packages.el:24) の advice が view-mode からの
+;;   離脱を止めるのは file-writable-p が nil のときだけ (viewer.el:283-291)。
+;;   普通に書けるリモートファイルなら C-x C-q でそのまま編集に移れる。
+;; -----------------------------------------------------------------------------
+
+(defcustom my/tramp-open-read-only t
+  "非 nil ならリモートファイルを view-mode (読み取り専用) で開く。
+編集に移るには C-x C-q 。"
+  :type 'boolean
+  :group 'tramp)
+
+(defun my/tramp--find-file-read-only ()
+  "`find-file-hook': リモートの既存ファイルを view-mode で開く。
+
+新規作成 (まだ存在しないパス) を除くのは、書くために開いたのが明らかだから。
+file-exists-p の追加コストは無視できる。find-file がここに来るまでに同じ
+属性を引いており TRAMP のキャッシュに乗っているため、通信は発生しない。"
+  (when (and my/tramp-open-read-only
+             buffer-file-name
+             (file-remote-p buffer-file-name)
+             (file-exists-p buffer-file-name)
+             (not (bound-and-true-p view-mode)))
+    (view-mode 1)))
+
+(add-hook 'find-file-hook #'my/tramp--find-file-read-only)
+
 ;; =============================================================================
 ;; 3. popper — ポップアップ系バッファを下部に集約し、1キーでトグル/巡回
 ;;   C-`   : ポップアップの表示/非表示

@@ -233,14 +233,10 @@
 ;; フォント関連の警告を抑制
 (setq display-warning-suppressed-classes '(font))
 
-(when (fboundp 'mac-input-source)
-  (defun my-mac-selected-keyboard-input-source-chage-function ()
-    (let ((mac-input-source (mac-input-source)))
-      (set-cursor-color
-        (if (string-match "com.google.inputmethod.Japanese.Roman" mac-input-source)
-            "cyan" "Red"))))
-  (add-hook 'mac-selected-keyboard-input-source-change-hook
-            'my-mac-selected-keyboard-input-source-chage-function))
+;; ここにあった IME 切替連動のカーソル色制御は廃止した。
+;; mac-input-source による日本語/英数の判定が実運用で安定せず、read-only 表示
+;; (03_view-visual.el) と同じ set-cursor-color を奪い合うため。
+;; カーソル色は read-only かどうかだけで決まる (red / cyan)。
 
 (when (functionp 'mac-auto-ascii-mode)  ;; ミニバッファに入力時、自動的に英語モード
   (mac-auto-ascii-mode 1))
