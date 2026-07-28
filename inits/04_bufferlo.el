@@ -1,4 +1,4 @@
-;;; 04_tabspace.el --- tab-bar / bufferlo 設定 -*- lexical-binding: t; -*-
+;;; 04_bufferlo.el --- tab-bar / bufferlo 設定 -*- lexical-binding: t; -*-
 ;; タブローカルなバッファリストとタブ bookmark (セッション/レイアウト) は
 ;; bufferlo に任せる。旧 tabspaces + 自作セッション/レイアウト/winner 同期
 ;; (tabspace-util.el) からの移行 (2026-07-23)。
@@ -155,4 +155,4 @@ layout = タブ bookmark の別名保存 (命名: タブ名/レイアウト名)
     "現タブの bufferlo ローカルバッファを返す consult ソース。")
   (add-to-list 'consult-buffer-sources 'my/consult--source-local-buffers))
 
-(provide '04_tabspace)
+(provide '04_bufferlo)

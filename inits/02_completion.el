@@ -1,4 +1,6 @@
-;; -*- lexical-binding: t; -*-
+;;; 02_completion.el --- 補完・検索 UI 一式 -*- lexical-binding: t; -*-
+;; swiper (C-s) / vertico / marginalia / consult / consult-dir / embark。
+;; 補完スタイル (orderless) と補完 UI (corfu/cape) は 02_packages.el 側にある。
 
 (require 'navigation-util)
 (require 'window-util)
@@ -101,4 +103,4 @@
                                            (let ((f (buffer-file-name (get-buffer b))))
                                              (if f (find-file (file-name-directory f)) (message "No file"))))))
 
-(provide '02_vertico)
+(provide '02_completion)

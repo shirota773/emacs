@@ -1,3 +1,5 @@
+;;; 05_editing.el --- 編集操作 (puni / expreg / symbol-overlay / repeat) -*- lexical-binding: t; -*-
+
 (leaf puni
   :ensure t
   :preface
@@ -145,4 +147,4 @@ puni-slurp
   :tag "builtin"
   :global-minor-mode repeat-mode)
 
-(provide '05_editting)
+(provide '05_editing)

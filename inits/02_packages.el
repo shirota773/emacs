@@ -112,7 +112,7 @@
 (leaf crux
   :ensure t
   :config
-  ;; M-o は 02_vertico.el で embark-act に割り当てるためここでは外す
+  ;; M-o は 02_completion.el で embark-act に割り当てるためここでは外す
   ;; (crux-smart-open-line は 94_keybinds.el の C-@ に割り当て済み)
   :bind (("C-a" . crux-move-beginning-of-line)
          ("<home>" . crux-move-beginning-of-line)

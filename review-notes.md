@@ -27,9 +27,9 @@
 | magit で commit できない | git-commit-mode-hook の廃止パッケージ fci-mode がエラー + server 未起動(Windows のみ start していた) | fci → 組み込み display-fill-column-indicator-mode、server-start を全 OS 化、magit-commit への advice 等の回避策を全撤去 | **解決確認済み** |
 | 別ディレクトリのファイルを開くのが手間 | 仕組み(consult-dir/my/global-dirs/dirvish quick-access)はあるが分散、my/global-dirs は custom-file=null-device のため Customize で永続化不能 | 未対応。bookmark(dired バッファの C-x r m)か my/global-dirs の setq 運用を推奨 | **未対応・検討中** |
 | 新規バッファの window 挙動 | display-buffer-alist がほぼ未設定 | popper + 基本ルールを 30_test-new.el に追加 | 試用中 |
-| TRAMP が遅い/不安定 | 設定ゼロ。recentf の kill-emacs cleanup がリモート stat でハング | 30_test-new.el にチューニング一式、recentf cleanup 廃止 | 試用中 |
+| TRAMP が遅い/不安定 | 設定ゼロ。recentf の kill-emacs cleanup がリモート stat でハング | チューニング一式、recentf cleanup 廃止。2026-07-28 に 32_tramp.el へ分離 | 定着 |
 | emacs から git が見えない | status ヘッダー削除・magit-git-debug 等 | 撤去 + diff-hl 追加 | 試用中 |
-| macOS でタブバーが表示されない | `tab-bar-auto-width-min/max` に Emacs 30 形式 `((N) M)` を設定していた。29 は `(N M)` 形式のため redisplay 中の幅計算が黙って型エラー → tab-bar-lines が 0 に戻され常に非表示 (emacs-mac は無実、-Q 最小再現で特定) | バージョン分岐の setq に修正 (04_tabspace.el)。**leaf の :custom は値の式を評価できない**(シンボルを変数として nil 設定する)ので式が要る値は :init で setq する | **解決 (2026-07-24)** |
+| macOS でタブバーが表示されない | `tab-bar-auto-width-min/max` に Emacs 30 形式 `((N) M)` を設定していた。29 は `(N M)` 形式のため redisplay 中の幅計算が黙って型エラー → tab-bar-lines が 0 に戻され常に非表示 (emacs-mac は無実、-Q 最小再現で特定) | バージョン分岐の setq に修正 (04_tabspace.el → 現 04_bufferlo.el)。**leaf の :custom は値の式を評価できない**(シンボルを変数として nil 設定する)ので式が要る値は :init で setq する | **解決 (2026-07-24)** |
 
 ## 3. swiper vs consult-line の結論(重要・再挑戦しないこと)
 
@@ -91,6 +91,28 @@
 - completion-ignore-case の矛盾(t→nil の二重設定)を整理: コード補完=区別する、
   ファイル名/バッファ名=区別しない
 
+### ファイル名を実態に合わせた (2026-07-28)
+
+パッケージ乗り換えや設定の増築でファイル名と中身がずれていたものを直した。
+番号は変えていないのでロード順への影響はない。
+
+| 旧 | 新 | 理由 |
+|---|---|---|
+| `04_tabspace.el` | `04_bufferlo.el` | tabspaces は 2026-07-23 に撤去済み。中身は tab-bar + bufferlo |
+| `02_vertico.el` | `02_completion.el` | 実態は swiper / vertico / marginalia / consult / consult-dir / embark 一式 |
+| `05_editting.el` | `05_editing.el` | スペルミス。あわせて欠けていた `lexical-binding` cookie を追加 |
+
+あわせて `30_test-new.el`(1,451行)から TRAMP 設定を **`32_tramp.el`(1,324行)**
+へ分離した。実機検証を終えて「試用中」ではなくなっていたため。
+
+- 節番号は `2-1` 〜 `2-6` のまま残す。この記録と `inits/README.md` が番号で
+  参照しているので、振り直すと参照先が消えるだけになる。同じ理由で
+  `30_test-new.el` 側のセクション 2 も欠番のままにした
+- 分離後の検証: フルロードで `init-loader-error-log` が空、`consult-dir-sources`
+  の並び(タブ2本 → 既定 → Remote dirs)、`tramp-completion-function-alist`
+  の ssh 4 本、embark の `X`、`find-file-hook` 3 本、`32_tramp.el` の
+  byte-compile 警告ゼロを確認
+
 ## 7. 試用中 — 判定待ち
 
 セクション単位で「定着なら NN_name.el へ昇格 / 不要なら削除」する。
@@ -99,6 +121,8 @@
 2. **TRAMP チューニング** — locks 抑止 / vc 無効化 / recentf・save-place の終了時
    ハング対策 / リモートで whitespace auto-cleanup 無効化。
    さらに高速化: ~/.ssh/config に ControlMaster auto + ControlPersist 10m
+   2026-07-28: **昇格して `inits/32_tramp.el` へ分離**(節番号 2-1〜2-6 は据え置き)。
+   残る実機未確認項目は `inits/README.md` の 32_tramp.el 節を参照
 3. **popper** — C-` トグル / M-` 巡回 / C-M-` 種別切替。JIS 配列だとキーが押し
    にくい可能性 → 不評ならキー変更
 4. **treesit-auto + eglot** — LSP サーバーは別途 (pyright, typescript-language-server)。
@@ -211,7 +235,7 @@
       **ivy/swiper は削除しないこと**(C-s で使用中)
 - [ ] whitespace-action auto-cleanup はローカルでも共有リポジトリでは diff 汚染の
       リスク(現状リモートのみ無効化)
-- [ ] 05_editting.el の isearch-mode-map C-t (visual-regexp-steroids) は C-s が
+- [ ] 05_editing.el の isearch-mode-map C-t (visual-regexp-steroids) は C-s が
       swiper のため実質死にバインド
 - [ ] インストール済みだが古いもの: minor-mode-hack, viewer 等は動いているので現状維持
 
