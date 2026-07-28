@@ -138,6 +138,34 @@
   :config
   (which-key-mode 1))
 
+;; helpful: 組み込みの describe-* を置き換える help バッファ。
+;; ソース・引数・キーバインド・呼び出し元・値の由来を 1 画面にまとめる。
+;; popper (30_test-new.el) の対象に helpful-mode を入れてあるので、
+;; ここで入れて初めてあの指定が効く。
+;;
+;; ★ "C-h f" ではなく help-map に直接載せる理由
+;;   C-h は 94_keybinds.el:36 の bind-keys* (override-global-map) で
+;;   delete-backward-char に潰してある。C-h から始まるキーは何を割り当てても
+;;   届かないので、生きている方の help プレフィックス <f1> 経由で使う。
+;;   help-map に載せれば <f1> f / <f1> v で届き、C-h を戻したくなった日には
+;;   そのまま C-h f でも使える。
+;; ★ :bind ではなく :init の bind-keys を使う理由
+;;   leaf の :bind でマップを指定すると `leaf-keys' が :package 付きで展開され、
+;;   bind-key 側が「そのパッケージがロードされるまで待つ」eval-after-load に
+;;   なる。helpful は遅延ロードなので誰もロードせず、キーが永久に当たらない
+;;   (実測: <f1> f が describe-function のままだった)。
+;;   helpful-* は package.el の autoload で既に fboundp なので、
+;;   help-map へ直接束ねてよい。
+(leaf helpful
+  :ensure t
+  :init
+  (bind-keys :map help-map
+             ("f" . helpful-callable)   ; 関数・マクロ (describe-function の代替)
+             ("v" . helpful-variable)
+             ("k" . helpful-key)
+             ("x" . helpful-command)    ; interactive なコマンドだけに絞る
+             ("." . helpful-at-point))) ; カーソル位置のシンボル
+
 (leaf beacon
   :ensure t
   :blackout t
@@ -234,47 +262,7 @@
   )
 
 ;; company は corfu に置き換え済み。`:disabled t` を外せば再有効化可能。
-(leaf company
-  :disabled t
-  :ensure t
-  :custom
-  (company-idle-delay . 0.1)
-  (company-minimum-prefix-length . 2)
-  (company-selection-wrap-around . t)
-  (company-show-numbers . t)
-
-  :hook (after-init-hook . global-company-mode)
-
-  :custom-face
-  (company-tooltip-selection . '((t (:foreground "#a1ffcd" :background "#007771"))))
-  (company-tooltip-common-selection . '((t (:foreground "white" :background "#007771"))))
-
-  :config
-  (defun my/company-insert-common ()
-    "Insert the common part of all candidates."
-    (interactive)
-    (when (company-manual-begin)
-      (company--insert-common)))
-
-  :bind
-  ((:company-active-map
-    ("<return>" . nil)
-    ("RET" . nil)
-    ("<tab>" . nil)
-    ("TAB" . nil)
-    ("M-n" . company-select-next)
-    ("M-p" . company-select-previous)
-    ("<up>" . nil)
-    ("<down>" . nil)
-    ("C-j" . my/company-insert-common)))
-  )
-
-;; corfu: 軽量な in-buffer 補完 UI (child-frame popup)。
-;; `completion-at-point-functions' (capf) のみをソースにする。
-;; 柔軟な絞り込み (スペース区切りで順不同な入力が可能に)
-;; 補完エンジンの絞り込みロジック (Orderless)
-;; スペース区切りで複数の単語にマッチするように設定
-
+;; 補完スタイル: スペース区切りで順不同・複数語マッチ (in-buffer / minibuffer 共通)
 (leaf orderless
   :ensure t
   :init

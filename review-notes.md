@@ -198,6 +198,51 @@
      終了時の 'all 保存も「既に bookmark 名が付いたタブ」を更新するだけで、
      新しい bookmark は作らない
 
+### パッケージ追加と死にコード掃除 (2026-07-28)
+
+**追加**
+
+- **helpful** — `30_test-new.el` の popper 設定が `helpful-mode` を指していたのに
+  未インストールで、あの指定はずっと空振りしていた。
+  - キーは `help-map` に直接束ねる。`C-h` は 94_keybinds.el:36 の `bind-keys*`
+    (override-global-map) で `delete-backward-char` に潰してあるため、
+    `C-h f` 形式では**永久に届かない**。生きているのは `<f1>` 側だけ
+  - **leaf の `:bind` でマップ指定をしてはいけない**。`leaf-keys` が
+    `:package helpful` 付きに展開され、bind-key 側が「helpful がロードされる
+    まで待つ」eval-after-load になる。遅延ロードなので誰もロードせず、
+    `<f1> f` が `describe-function` のままだった (実測)。`:init` の
+    `bind-keys` で束ねる
+  - 同じ理由で **`C-h B` (embark-bindings, 02_completion.el:87) も死んでいる**。
+    使いたければ `<f1> B` に移すこと
+- **doom-modeline** — `init.el:62` の `doom-modeline-bar` の `:custom-face` だけが
+  あって本体が無く、これも空振りしていた。`inits/03_modeline.el` を新設。
+  - `01_setup.el` の総行数表示 (`my-mode-line-format` → `mode-line-position`)
+    は削除。doom-modeline は `mode-line-format` ごと差し替えるので効かない。
+    同じことは `doom-modeline-total-line-number` で表現する
+  - **リモート git 表示 (32_tramp.el 2-5 節) の出力先を `vc-mode` から
+    `mode-line-misc-info` へ変更**。doom-modeline の vcs セグメントは vc-mode の
+    文字列を出さず、`vc-backend` が backend を返したときだけ自前で組み立て直す
+    (doom-modeline-segments.el:699-700)。TRAMP 設定が `vc-ignore-dir-regexp` に
+    `tramp-file-name-regexp` を足しているのでリモートでは vc-backend が必ず
+    nil → doom-modeline では確実に消えていた。misc-info なら素のモードラインと
+    doom-modeline の両方が表示する (bufferlo も同じ変数に同じ形で登録している)
+  - nerd-icons のフォントは `Symbols Nerd Font Mono` が既定だが、この Mac には
+    `MesloLG* Nerd Font` しか入っていない。入っているファミリを探して使い、
+    無ければ `doom-modeline-icon` を nil に落とす (Windows 機を想定)
+
+**掃除**
+
+- `02_packages.el` の `company` ブロック (`:disabled t` の 61 行) を削除。
+  corfu へ一本化済みで、elpa にも実体が無かった
+- 設定を失っていたパッケージ実体を削除:
+  tabspaces / color-moccur / grep-a-lot / key-chord / smart-tab / esup /
+  noflet / fill-column-indicator (いずれも逆依存ゼロを確認)
+- `01_setup.el` の `frame-title-format`: 上の行をコメントアウトしたときに
+  `format` の引数だけが残っていた (byte-compile 警告)。`"%f"` に直した
+
+**§8 の「不要になったパッケージ実体の掃除」はこれで完了。**
+ivy / swiper と visual-regexp は使用中なので残す。
+
 ## 8. 未対応・保留リスト(次回レビューの候補)
 
 - [x] 別ディレクトリ問題の本命対応: **bookmark 運用で整備 (2026-07-04)**。
@@ -230,9 +275,9 @@
         スコープは tab-bookmark-util.el (アクティブタブ bookmark 名を参照)
 - [ ] custom-file = null-device の副作用: package-selected-packages が保存されず
       package-autoremove / 新マシン一括導入が機能しない
-- [ ] 不要になったパッケージ実体の掃除(key-chord, smart-tab, color-moccur,
-      grep-a-lot, esup, noflet, fill-column-indicator 等)。
-      **ivy/swiper は削除しないこと**(C-s で使用中)
+- [x] 不要になったパッケージ実体の掃除(key-chord, smart-tab, color-moccur,
+      grep-a-lot, esup, noflet, fill-column-indicator, tabspaces)
+      **(2026-07-28 完了)**。**ivy/swiper は削除しないこと**(C-s で使用中)
 - [ ] whitespace-action auto-cleanup はローカルでも共有リポジトリでは diff 汚染の
       リスク(現状リモートのみ無効化)
 - [ ] 05_editing.el の isearch-mode-map C-t (visual-regexp-steroids) は C-s が

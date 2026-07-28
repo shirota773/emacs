@@ -1124,6 +1124,25 @@ nil ならブランチ名だけになる (git の実行回数は変わらない)
 値は plist (:branch :added :deleted :files)、pending (取得中)、
 none (リポジトリ外・git 不在・接続不可) のいずれか。")
 
+(defvar-local my/tramp-branch--mode-line nil
+  "このバッファのモードラインに出す git 情報の文字列。nil なら何も出さない。")
+
+;; ★ vc-mode ではなく mode-line-misc-info に出す (2026-07-28 変更)
+;;   当初はこの文字列を `vc-mode' に入れていた。素のモードラインは vc-mode を
+;;   そのまま表示するので動いていたが、doom-modeline (03_modeline.el) を
+;;   入れると必ず消える。あちらの vcs セグメントは vc-mode の文字列を出さず、
+;;   `vc-backend' が backend を返したときだけ自前で組み立て直す実装だから
+;;   (doom-modeline-segments.el:699-700)。そしてこのファイルの leaf tramp が
+;;   `vc-ignore-dir-regexp' に `tramp-file-name-regexp' を足しているので、
+;;   リモートでは vc-backend が必ず nil を返す。
+;;
+;;   mode-line-misc-info なら素のモードライン (mode-line-format の既定に含まれる)
+;;   と doom-modeline の misc-info セグメント (同 1818-1823) の両方が表示する。
+;;   末尾に足すのは既存の表示を押しのけないため。
+(add-to-list 'mode-line-misc-info
+             '(my/tramp-branch--mode-line (:eval my/tramp-branch--mode-line))
+             t)
+
 ;; 区切りに @@ の行を挟んで 3 ブロックを 1 回の出力で受け取る。
 ;;
 ;; exec 2>/dev/null はリポジトリ外のときの git のエラー文を混ぜないため
@@ -1181,7 +1200,7 @@ none (リポジトリ外・git 不在・接続不可) のいずれか。")
     (dolist (buf (buffer-list))
       (with-current-buffer buf
         (when (equal buffer-file-name file)
-          (setq vc-mode text)
+          (setq my/tramp-branch--mode-line text)
           (force-mode-line-update))))))
 
 (defun my/tramp-branch--sentinel (proc _event)
@@ -1245,7 +1264,7 @@ REPORT が非 nil なら結果をエコーエリアに報告する (refresh 用)
   (when (and buffer-file-name (file-remote-p buffer-file-name))
     (let ((cached (gethash buffer-file-name my/tramp-branch--cache)))
       (cond ((consp cached)                     ; 取得済み → 即表示
-             (setq vc-mode (my/tramp-branch--format cached)))
+             (setq my/tramp-branch--mode-line (my/tramp-branch--format cached)))
             ((null cached)                      ; 未取得 → アイドル時に取得
              (my/tramp-branch--schedule buffer-file-name))
             ;; pending 中に開いたバッファは sentinel の --display が拾う。

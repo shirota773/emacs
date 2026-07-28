@@ -146,30 +146,19 @@
 
 (set-locale-environment nil)            ;; Localeに合わせた環境の設定
 
-(defvar my-lines-page-mode t)           ;; モードラインの割合表示を総行数表示
-(defvar my-mode-line-format)
-
-(when my-lines-page-mode
-  (setq my-mode-line-format "%d")
-  (if size-indication-mode
-      (setq my-mode-line-format (concat my-mode-line-format " of %%I")))
-  (cond ((and (eq line-number-mode t) (eq column-number-mode t))
-         (setq my-mode-line-format (concat my-mode-line-format " (%%l,%%c)")))
-        ((eq line-number-mode t)
-         (setq my-mode-line-format (concat my-mode-line-format " L%%l")))
-        ((eq column-number-mode t)
-         (setq my-mode-line-format (concat my-mode-line-format " C%%c"))))
-
-  (setq mode-line-position
-        '(:eval (format my-mode-line-format
-                        (count-lines (point-max) (point-min))))))
+;; モードラインの総行数表示は 03_modeline.el (doom-modeline) へ移した。
+;; doom-modeline は mode-line-format ごと差し替えるため、ここで
+;; mode-line-position を書き換えても表示されない (2026-07-28)。
 
 ;;; スクロールを一行ずつにする
 (setq scroll-step 1)
 
 ;;; タイトルバーにファイル名を表示する
 ;; (setq frame-title-format (format "emacs@%s : %%f" (system-name)))
-(setq frame-title-format (format "%%f" (system-name)))
+;; 上をコメントアウトしたとき format の引数だけが残っていた
+;; (byte-compile が「0 個の書式指定に 1 引数」と警告する)。%f はモードライン
+;; 構造の書式指定なので format を通す必要は無い
+(setq frame-title-format "%f")
 ;;; 画像ファイルを表示する
 (auto-image-file-mode t)
 
