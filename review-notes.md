@@ -94,6 +94,26 @@
   - hydra 内の `a` (`puni-beginning-of-sexp`) と `d` (`puni-forward-kill-word`) は
     puni-mode-map 既定の `C-M-a` / `M-d` と重複。キーを他に回せる
   - `l` (`puni-mark-list-around-point`) はバインド済みだがヒント未掲載
+- `C-r` / `C-t`(vertico-map)の 2 症状を修正 (2026-07-31、`navigation-util.el`)。
+  どちらも原因は**グローバル変数 `my/c-r-state` で「今どちらの UI を出して
+  いるか」を追跡していた設計**。
+  - **症状1: `C-r C-r` 連打で開く UI が安定しない。** `my/minibuffer-exit-run`
+    が minibuffer を閉じてから **0.05 秒後**に次の UI を開いていた。この隙間に
+    届いた 2 打目は `minibufferp` が nil = 「minibuffer の外」と判定され、
+    state のトグルではなく `'local` へのリセットが走る。打鍵速度で結果が
+    変わっていた。→ `run-at-time` を 0 (次のイベントループ) に短縮。
+    **隙間が縮むだけで根治ではない**ので、再発したら state を
+    minibuffer ローカルにする等の作り直しが要る
+  - **症状2: `C-t` が無関係なディレクトリから find-file を始める。**
+    分岐が `my/c-r-state` だけで決まり、候補の中身を一切見ていなかった。
+    state と UI がズレて「state=recentf なのに候補はバッファ名」になると
+    `(expand-file-name "05_editing.el")` が `default-directory` 基準で
+    展開され、`~/` から find-file が始まる (実機報告と batch で再現一致)。
+    → `my/candidate-directory` を新設し**候補の形だけで判定**する:
+    絶対パスならその親、バッファ名ならそのバッファの `default-directory`、
+    どちらでもなければ従来の "Select directory:" に fallback。
+    副次的に **`C-r` 1 回 (バッファリスト) でも `C-t` が効く**ようになった
+    (従来は else 分岐に落ちて "Select directory:" が出ていた)
 
 ## 6. 構造変更
 
