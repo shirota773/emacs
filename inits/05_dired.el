@@ -24,14 +24,8 @@
   ;; dired-find-alternate-file の有効化
   (put 'dired-find-alternate-file 'disabled nil)
 
-  (defun my/dired-open-externally ()
-    "ポイントのファイルを OS 既定のアプリケーションで開く。"
-    (interactive)
-    (let ((file (dired-get-filename nil t)))
-      (unless file (user-error "ここにファイルがありません"))
-      (cond (darwin-p (call-process "open" nil 0 nil file))
-            (windows-nt-p (w32-shell-execute "open" file))
-            (t (call-process "xdg-open" nil 0 nil file)))))
+  ;; 既定アプリで開く処理は my-defuns.el の my/open-externally-dwim に統合した
+  ;; (2026-07-31)。dired ならポイント下のファイルを対象にするので E はそのまま。
 
   :bind (("C-x C-j" . dired-jump)        ; 今のファイルの位置で dired を開く
          (dired-mode-map
@@ -45,7 +39,7 @@
           ("/" . dirvish-narrow)         ; 入力で絞り込み
           ("s" . dirvish-quicksort)      ; ソート切替メニュー
           ("H" . dirvish-history-jump)   ; 訪問履歴からジャンプ
-          ("E" . my/dired-open-externally)
+          ("E" . my/open-externally-dwim)
           ("(" . dired-hide-details-mode)
           ("z" . peep-dired)
           ))

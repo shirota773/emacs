@@ -30,6 +30,10 @@
  ("<f12>"   . shell)
  ("C-x C-q" . view-mode)
  ("C-x k"   . kill-current-buffer)
+ ;; OS 既定のアプリで開く (html/md のプレビュー等)。o = カレントのファイル
+ ;; (dired ならポイント下)、O = 常にファイルを選ぶ。実体は my-defuns.el。
+ ("C-c o"   . my/open-externally-dwim)
+ ("C-c O"   . my/open-externally-select)
  ("C-c c"   . org-capture)
  ("C-c a"   . org-agenda)
  ("C-o"     . other-window)

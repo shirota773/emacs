@@ -4,15 +4,57 @@
 ;; 1. File & Application Utilities
 ;; =============================================================================
 
-(defun open-file-in-external-app ()
-  "Open a file in the default external application using a find-file-like interface."
+;; OS 既定のアプリケーションでファイルを開く (2026-07-31 に統合)。
+;; 以前は同じことをする実装が 3 つに散っていた: ここの
+;; open-file-in-external-app、05_dired.el の my/dired-open-externally、
+;; パッケージの crux-open-with。プラットフォーム分岐も 2 箇所に重複し、
+;; さらに前 2 つはキーに繋がっていなかった。分岐を my/open-externally に
+;; 集約し、入口を dwim (C-c o) と select (C-c O) の 2 つにまとめた。
+;; crux-open-with は Windows 分岐を持たない (毎回コマンド名を聞かれる) ため
+;; 採用しない。
+
+(defun my/open-externally (file)
+  "FILE を OS 既定のアプリケーションで開く。"
+  (unless file
+    (user-error "対象のファイルがありません"))
+  ;; リモート判定は file-exists-p より必ず先に行う。TRAMP パスに
+  ;; file-exists-p を呼ぶと実接続を試みて待たされるが、file-remote-p は
+  ;; 文字列を見るだけで接続しない。
+  (when (file-remote-p file)
+    (user-error "リモートファイルは既定アプリで開けません: %s" file))
+  (let ((path (expand-file-name file)))
+    (unless (file-exists-p path)
+      (user-error "ファイルが見つかりません: %s" path))
+    (cond
+     (darwin-p     (call-process "open" nil 0 nil path))
+     (windows-nt-p (w32-shell-execute "open" path))
+     (t            (call-process "xdg-open" nil 0 nil path)))))
+
+(defun my/open-externally--target ()
+  "既定アプリで開く対象を返す。決まらなければ nil。
+dired ならポイント下のファイル、そうでなければ訪問中のファイル。"
+  (if (derived-mode-p 'dired-mode)
+      (dired-get-filename nil t)
+    buffer-file-name))
+
+(defun my/open-externally-dwim ()
+  "現在の対象を OS 既定のアプリケーションで開く。
+dired ならポイント下、ファイルを訪問中ならそのファイル。対象が決まらない
+ときはファイル選択にフォールバックする。
+既定アプリはディスク上の内容を読むため、未保存の変更があれば先に保存を尋ねる。"
   (interactive)
-  (let* ((file (expand-file-name (read-file-name "Open file: ")))
-         (command (cond
-                    (windows-nt-p (list "cmd.exe" "/c" "start" "" file))
-                    (darwin-p (list "open" file))
-                    (linux-p (list "xdg-open" file)))))
-    (apply 'start-process "external-app" nil (car command) (cdr command))))
+  (let ((file (or (my/open-externally--target)
+                  (read-file-name "既定アプリで開く: "))))
+    (when (and (equal file buffer-file-name)
+               (buffer-modified-p)
+               (y-or-n-p "未保存の変更があります。保存してから開きますか? "))
+      (save-buffer))
+    (my/open-externally file)))
+
+(defun my/open-externally-select ()
+  "ファイルを選んで OS 既定のアプリケーションで開く。"
+  (interactive)
+  (my/open-externally (read-file-name "既定アプリで開く: ")))
 
 (defun rename-file-and-buffer (new-name)
   "Renames both current buffer and file it's visiting to NEW-NAME."

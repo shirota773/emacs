@@ -114,6 +114,22 @@
     どちらでもなければ従来の "Select directory:" に fallback。
     副次的に **`C-r` 1 回 (バッファリスト) でも `C-t` が効く**ようになった
     (従来は else 分岐に落ちて "Select directory:" が出ていた)
+- `C-c o` / `C-c O` = OS 既定アプリで開く (2026-07-31 に新設・統合)。
+  html/md をブラウザやプレビューで見たいとき用。`o` = カレントのファイル
+  (dired ならポイント下、対象が無ければファイル選択にフォールバック)、
+  `O` = 常にファイルを選ぶ。dired の `E` も同じ dwim に付け替えた。
+  - **同じことをする実装が 3 つに散っていた**のを `my/open-externally`
+    (my-defuns.el) に集約: `open-file-in-external-app` (my-defuns.el)、
+    `my/dired-open-externally` (05_dired.el)、パッケージの `crux-open-with`。
+    プラットフォーム分岐も 2 箇所に重複していた。前 2 つは**キーに繋がって
+    おらず M-x でしか呼べない**状態だった (これが「カレントを開く手段が無い」
+    の正体)。`crux-open-with` は `pcase` に `windows-nt` が無く Windows では
+    毎回コマンド名を聞かれるため採用しない
+  - **TRAMP ガードは `file-exists-p` より必ず先に置く**。リモートパスに
+    `file-exists-p` を呼ぶと実接続を試みて待たされるが、`file-remote-p` は
+    文字列を見るだけで接続しない。batch 検証で存在しないホストを渡しても
+    全体 0.12 秒で user-error に落ちることを確認済み
+  - 既定アプリはディスク上の内容を読むため、未保存の変更があれば保存を尋ねる
 
 ## 6. 構造変更
 
