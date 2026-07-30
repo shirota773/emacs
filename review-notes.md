@@ -173,7 +173,8 @@
 8. **bufferlo (GNU ELPA 1.2)** — 2026-07-23移行。tabspaces + 自作 tabspace 群の
    置き換え。GUI で実機確認してから判定する項目:
    - タブ bookmark 運用: hydra `s`/`C-s`/`d` (保存/読込/削除)、`S` 一括保存、
-     閉じ時 when-bookmarked 自動保存、起動時 'all 復元、600秒自動保存
+     閉じ時 when-bookmarked 自動保存、起動時 'all 復元
+     (定期保存タイマーは 2026-07-30 に無効化。下記参照)
    - `C-;` の Local Buffers ソース最優先表示、`C-r` トグル、`C-f` hydra 新構成
    - レイアウト切替 (同一タブで別名 bookmark をロード) の使用感
    - bufferlo-anywhere-mode は未使用 (素の C-x b はフィルタされない)。
@@ -197,6 +198,22 @@
    - 何も保存していない状態なら復元対象ゼロで起動画面のタブ1枚だけになる。
      終了時の 'all 保存も「既に bookmark 名が付いたタブ」を更新するだけで、
      新しい bookmark は作らない
+   2026-07-30:
+   - **ウィンドウ undo/redo を winner から tab-bar-history-mode へ移した**。
+     `tab-bar-history-mode` 自体は移行時 (2026-07-23) から有効だったが、
+     `M-w` / `M-s M-w` が `winner-undo` / `winner-redo` のまま残っていて
+     機能が繋がっていなかった。winner はフレーム単位で履歴を持つため
+     タブ切り替えも構成変化として記録され、別タブに移ってから undo すると
+     前タブの構成が今のタブに復元される (tabspaces 時代に自作の winner
+     同期を書いていたのはこれを避けるため)。`tab-bar.el` は winner に
+     一切触れないので両者は独立に並走していた。キーを
+     `tab-bar-history-back` / `-forward` に付け替え、`winner-mode`
+     (01_setup.el) は撤去。履歴は `tab-bar-history-limit` (既定 10) 件
+   - **定期保存タイマーを無効化** (`bufferlo-bookmarks-auto-save-interval`
+     600 → 0。0 が無効値で bufferlo の既定値も 0)。作業中の一時的な
+     バッファ構成を 600 秒ごとに bookmark へ焼き込んでしまうため。
+     保存タイミングは終了時 ('all) とタブ閉じ時 (when-bookmarked) に限定し、
+     任意の時点で残したいときは hydra の `s` / `S` で明示保存する
 
 ### パッケージ追加と死にコード掃除 (2026-07-28)
 

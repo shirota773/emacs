@@ -121,7 +121,10 @@
     (progn
       (set-frame-parameter nil 'alpha 96)))
 
-(winner-mode)                           ;; windowのundo, redo
+;; ウィンドウ構成の undo/redo は winner-mode ではなく tab-bar-history-mode
+;; (04_bufferlo.el で有効化)。winner はフレーム単位で履歴を持つためタブ
+;; 切り替えも構成変化として記録され、別タブに移ってから undo すると前タブの
+;; 構成が今のタブに復元される。キーは 94_keybinds.el の M-w / M-s M-w。
 (fset 'yes-or-no-p 'y-or-n-p)           ;; "yes or no" の選択を "y or n" にする
 
 (set-scroll-bar-mode 'nil)

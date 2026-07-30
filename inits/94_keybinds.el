@@ -83,10 +83,13 @@
   :config
   (mykie:initialize)
 
+  ;; ウィンドウ構成の undo/redo はタブごと (tab-bar-history-mode)。
+  ;; 旧 winner-undo/redo はフレーム単位でタブをまたいで復元してしまうため
+  ;; 2026-07-30 に置き換えた (winner-mode は 01_setup.el から撤去済み)。
   (mykie:global-set-key "M-w"
-    :default winner-undo
+    :default tab-bar-history-back
     :region copy-region-as-kill)
-  (bind-key* (kbd "M-s M-w") 'winner-redo)
+  (bind-key* (kbd "M-s M-w") 'tab-bar-history-forward)
 
   (mykie:global-set-key "C-@"
     :default crux-smart-open-line

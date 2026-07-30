@@ -62,7 +62,11 @@
   ;; タブ bookmark の自動保存・復元
   (bufferlo-bookmarks-load-at-emacs-startup . 'all)
   (bufferlo-bookmarks-save-at-emacs-exit . 'all)
-  (bufferlo-bookmarks-auto-save-interval . 600)
+  ;; 定期保存タイマーは無効 (0 が無効値、bufferlo の既定値も 0) (2026-07-30)
+  ;; 作業中の一時的なバッファ構成をタイマーが勝手に bookmark へ焼き込むため、
+  ;; 保存タイミングを終了時とタブ閉じ時 (下の save-on-close) に限定する。
+  ;; 任意の時点で残したいときは hydra の `s' / `S' で明示保存する。
+  (bufferlo-bookmarks-auto-save-interval . 0)
   (bufferlo-bookmark-tab-save-on-close . 'when-bookmarked)
   ;; 既に開いているタブ bookmark をもう一度 load したときの動作 (2026-07-28)
   ;; 既定の 'prompt は "already active: Allow, Clear, Ignore, Raise" という
