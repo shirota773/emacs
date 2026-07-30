@@ -77,6 +77,23 @@
 - `M-s o` = 組み込み occur(moccur 廃止に伴い標準に戻った)
 - `C-s`(vertico-map 内)= vertico-next
 - `C-x M-t` = gt-do-translate(翻訳)
+- puni hydra (`C-b`) の `c` = **存在しないコマンドを指していた** (2026-07-30 修正)。
+  `puni-clone-thing-at-point` は puni に無く (パッケージ全ファイルに `clone` の
+  文字列すら無い、`fboundp` = nil)、押すと void-function になっていた。
+  ヒントには `_c_: clone` と表示されていたので気付きにくい状態だった。
+  - 代替として `r` = `puni-raise` を割当 (囲みを捨てて中身を昇格。paredit の
+    `M-r` 相当で、構造編集では最も出番が多い)
+  - あわせて vim の `ci`/`ca`/`yi`/`ya` 相当を `ci`/`co`/`yi`/`yo` に追加
+  - `puni-read-char-for-change-inner` = t にした。既定の nil は区切り文字を
+    `read-string` で聞くため minibuffer が開き、`:config` の
+    `minibuffer-setup-hook` → `hydra-keyboard-quit` で hydra が閉じてしまう。
+    引き換えに複数文字の区切りは使えない
+  - 未採用のまま残っている高価値コマンド: `puni-transpose` / `puni-split` /
+    `puni-convolute` / `puni-splice-killing-forward`/`-backward` /
+    `puni-wrap-square`/`-curly`/`-angle` (`w` = round のみ使用)
+  - hydra 内の `a` (`puni-beginning-of-sexp`) と `d` (`puni-forward-kill-word`) は
+    puni-mode-map 既定の `C-M-a` / `M-d` と重複。キーを他に回せる
+  - `l` (`puni-mark-list-around-point`) はバインド済みだがヒント未掲載
 
 ## 6. 構造変更
 

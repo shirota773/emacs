@@ -46,6 +46,12 @@
     (setq unread-command-events
           (append (listify-key-sequence (this-command-keys-vector))
                   unread-command-events)))
+  :custom
+  ;; change/copy-inner の区切り文字を read-char で聞く (既定の read-string は
+  ;; minibuffer を開くため、上の minibuffer-setup-hook の hydra-keyboard-quit が
+  ;; 発火して hydra が閉じてしまう)。vim の ci と同じ 1 文字入力になる。
+  ;; 引き換えに複数文字の区切りは使えないが、実用上 ( [ { " ' で足りる。
+  (puni-read-char-for-change-inner . t)
   :config
   (puni-global-mode 1)
   (add-hook 'minibuffer-setup-hook #'hydra-keyboard-quit)
@@ -55,12 +61,12 @@
   (hydra-puni
    (:color pink :hint nil :foreign-keys run)
    "
-  [Move(Extend)]  [Select/Edit]          [Structure]
- --------------------------------------------------
-  _f_: forward    _e_: expand(expreg)    _s_: slurp
-  _b_: backward   _w_: wrap              _B_: barf
-  _a_: begin      _p_: splice            _S_: squeeze
-  _c_: clone      _d_: delete-word       _x_: exchange-point
+  [Move(Extend)]  [Select/Edit]          [Structure]          [Inner/Outer]
+ --------------------------------------------------------------------------
+  _f_: forward    _e_: expand(expreg)    _s_: slurp           _ci_: change-inner
+  _b_: backward   _w_: wrap              _B_: barf            _co_: change-outer
+  _a_: begin      _p_: splice            _S_: squeeze         _yi_: copy-inner
+  _r_: raise      _d_: delete-word       _x_: exchange-point  _yo_: copy-outer
 "
    ("f" my/puni-forward-extend)
    ("b" my/puni-backward-extend)
@@ -71,10 +77,19 @@
    ("s" hydra-puni-slurp/body)
    ("B" puni-barf-forward)
    ("S" puni-squeeze)
-   ("c" puni-clone-thing-at-point)
+   ;; 囲みを捨てて中身を昇格 (paredit の M-r 相当)。
+   ;; 旧 "c" は puni-clone-thing-at-point を指していたが、このコマンドは
+   ;; puni に存在せず押すと void-function になっていた (2026-07-30 に置換)。
+   ("r" puni-raise)
    ("d" puni-forward-kill-word)
    ("l" puni-mark-list-around-point)
    ("x" exchange-point-and-mark)
+   ;; vim の ci / ca / yi / ya 相当。区切り文字を 1 文字聞いてから
+   ;; その内側 (inner) か区切りを含む全体 (outer) を kill / copy する。
+   ("ci" puni-change-inner)
+   ("co" puni-change-outer)
+   ("yi" puni-copy-inner)
+   ("yo" puni-copy-outer)
    
    ;; Quit and pass keys to Emacs
    ("M-w" my/hydra-puni-quit-and-pass-key "copy" :exit t)
