@@ -99,8 +99,12 @@
 
 (with-eval-after-load 'embark
   (define-key embark-file-map (kbd "d") (lambda (f) (interactive "f") (find-file (file-name-directory f))))
-  (define-key embark-buffer-map (kbd "d") (lambda (b) (interactive "b") 
+  (define-key embark-buffer-map (kbd "d") (lambda (b) (interactive "b")
                                            (let ((f (buffer-file-name (get-buffer b))))
-                                             (if f (find-file (file-name-directory f)) (message "No file"))))))
+                                             (if f (find-file (file-name-directory f)) (message "No file")))))
+  ;; a: アプリを選んで開く (md をブラウザや専用ビューアーで見る等)。
+  ;; 既定アプリで開くだけなら embark 標準の x (embark-open-externally) がある。
+  ;; 実体は my-defuns.el の my/embark-open-with-app。
+  (define-key embark-file-map (kbd "a") #'my/embark-open-with-app))
 
 (provide '02_completion)

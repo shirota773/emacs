@@ -114,10 +114,24 @@
     どちらでもなければ従来の "Select directory:" に fallback。
     副次的に **`C-r` 1 回 (バッファリスト) でも `C-t` が効く**ようになった
     (従来は else 分岐に落ちて "Select directory:" が出ていた)
-- `C-c o` / `C-c O` = OS 既定アプリで開く (2026-07-31 に新設・統合)。
-  html/md をブラウザやプレビューで見たいとき用。`o` = カレントのファイル
-  (dired ならポイント下、対象が無ければファイル選択にフォールバック)、
-  `O` = 常にファイルを選ぶ。dired の `E` も同じ dwim に付け替えた。
+- `C-c o` = OS 既定アプリで開く (2026-07-31 に新設・統合、08-01 に最小構成へ)。
+  html/md をブラウザやプレビューで見たいとき用。対象は**カレントのファイル**
+  (dired ならポイント下)。dired の `E` も同じコマンドに付け替えた。
+  入口は 3 つだけに絞ってある:
+
+  | 呼び方 | 動作 |
+  |---|---|
+  | `C-c o` | カレントを既定アプリで開く |
+  | `M-x my/open-externally-with-app` | カレントをアプリを選んで開く |
+  | `M-o a` | embark の候補をアプリを選んで開く |
+
+  - **ファイルを選んで開く版は作らない** (2026-08-01 に撤去)。旧
+    `my/open-externally-select` (`C-c O`) と、対象が決まらないときの
+    `read-file-name` フォールバックを両方外し、訪問中でなければ user-error に
+    した。ファイルを選んでから開きたいときは find-file なり embark なりで
+    候補に辿り着いてから `M-o a` を使う
+  - prefix 引数 (`C-u` でアプリ選択) も撤去。M-x から使うとき `C-u M-x ...` に
+    なってかえって面倒で、独立コマンド名のほうが速い
   - **同じことをする実装が 3 つに散っていた**のを `my/open-externally`
     (my-defuns.el) に集約: `open-file-in-external-app` (my-defuns.el)、
     `my/dired-open-externally` (05_dired.el)、パッケージの `crux-open-with`。
@@ -130,6 +144,28 @@
     文字列を見るだけで接続しない。batch 検証で存在しないホストを渡しても
     全体 0.12 秒で user-error に落ちることを確認済み
   - 既定アプリはディスク上の内容を読むため、未保存の変更があれば保存を尋ねる
+  - **アプリ指定** (2026-08-01 追加)。md の既定がエディタでも、ブラウザや
+    専用ビューアー (Obsidian 等) で見たいときのため。
+    - macOS は `open -a APP FILE`、Windows は `w32-shell-execute "open" APP FILE`、
+      Linux は APP を直接実行
+    - 候補は `/Applications` `/System/Applications`
+      `/System/Applications/Utilities` `~/Applications` から動的に列挙する
+      (実測 133 件)。**固定リストを持たない**のはメンテが要るうえ、
+      vertico + orderless なら数文字で絞れるため。候補に無いものも入力でき
+      (Windows/Linux はこれで実行ファイル名を直接指定する)、選択履歴
+      `my/open-external-app-history` で前回選んだものが上に出る
+    - **embark (`M-o`) からも呼べる**: `M-o a` = アプリを選んで開く
+      (`my/embark-open-with-app`、割当は 02_completion.el)。`a` は
+      embark-file-map の既定で未使用 (実測 nil)。embark のアクションは
+      commandp かつ対象を受け取れる必要があるので `(interactive "f")` にする
+      - **既定アプリで開くだけなら embark 標準の `M-o x`
+        (`embark-open-externally`) が最初からある** (Windows 対応済み、
+        `[a-z]+://` を見て URL も扱う)。足したのはアプリ選択版のみ
+      - ただし `embark-open-externally` に **TRAMP ガードは無い**。リモート
+        ファイルに `x` を押すとローカルの `open` に渡って黙って失敗する。
+        自作の `a` は `my/open-externally` 経由なので user-error で弾く
+    - 検証は `call-process` を差し替えて引数の組み立てだけを見た
+      (実際にアプリを起動せずに済ませるため)
 
 ## 6. 構造変更
 
