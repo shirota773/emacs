@@ -107,6 +107,30 @@ interactive spec の \"f\" は embark が対象を流し込むために必要。
   (interactive "fファイル: ")
   (my/open-externally file (my/open-externally--read-app)))
 
+(defun my/reveal-in-file-manager (&optional file)
+  "FILE を OS のファイラで選択状態にして表示する (C-c O)。
+FILE 省略時は dired ならポイント下、そうでなければ訪問中のファイル。
+`my/open-externally' (C-c o) が「開く」のに対し、こちらは「置き場所を見せる」。
+AirDrop や共有メニューなど、OS のファイラ側でしかできない操作に渡すため。"
+  (interactive)
+  (let* ((file (or file (my/open-externally--target)
+                   (user-error "対象のファイルがありません")))
+         (path (expand-file-name file)))
+    ;; 理由は `my/open-externally' と同じ。file-remote-p は接続しない。
+    (when (file-remote-p path)
+      (user-error "リモートファイルは表示できません: %s" path))
+    (unless (file-exists-p path)
+      (user-error "ファイルが見つかりません: %s" path))
+    (cond
+     (darwin-p     (call-process "open" nil 0 nil "-R" path))
+     ;; explorer は区切りがバックスラッシュでないとファイルを選択してくれない。
+     ;; また /select, と パスの間に空白を入れると解釈されない。
+     (windows-nt-p (call-process "explorer" nil 0 nil
+                                 (concat "/select," (subst-char-in-string ?/ ?\\ path))))
+     ;; Linux は「選択状態で開く」の共通手段が無いので親ディレクトリを開く
+     (t            (call-process "xdg-open" nil 0 nil
+                                 (file-name-directory path))))))
+
 (defun rename-file-and-buffer (new-name)
   "Renames both current buffer and file it's visiting to NEW-NAME."
   (interactive "sNew name: ")

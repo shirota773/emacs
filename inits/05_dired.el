@@ -18,9 +18,11 @@
   ;; wdired でパーミッションも編集可能に
   (wdired-allow-to-change-permissions . t)
   :config
-  ;; Finder のゴミ箱と共有する (未設定だと ~/.local/share/Trash になる)
-  (when darwin-p
-    (setq trash-directory "~/.Trash"))
+  ;; ゴミ箱の行き先は `move-file-to-trash' が決める。分岐の先頭が
+  ;; `system-move-file-to-trash' (C 実装) で、macOS では Finder のゴミ箱
+  ;; ("戻す" が効く)、Windows ではごみ箱に入る。`trash-directory' は
+  ;; その関数が無い環境 (Linux 等) 用のフォールバックなので、ここでは設定しない
+  ;; (設定しても参照されない)。2026-08-08 に誤設定を削除。
   ;; dired-find-alternate-file の有効化
   (put 'dired-find-alternate-file 'disabled nil)
 
@@ -64,17 +66,40 @@
   :bind
   ("M-s d" . dirvish-side)
   :config
-  (setq dired-use-ls-dired (not darwin-p))
+  ;; 一覧の見た目を macOS と Windows で揃える。
+  ;; macOS の BSD ls は --group-directories-first を持たないので GNU ls (gls,
+  ;; Homebrew の coreutils) があればそちらを使う。Windows は ls-lisp が長オプションを
+  ;; 短縮形に変換し (--almost-all→-A 等)、--group-directories-first も解釈するので
+  ;; 同じ文字列がそのまま通る。gls が無い Mac では BSD ls のままになる。
+  (when (and darwin-p (executable-find "gls"))
+    (setq insert-directory-program "gls"))
   (setq dired-listing-switches
-        (if darwin-p
-            "-lAh"
-          "-l --almost-all --human-readable --group-directories-first --no-group"))
+        "-l --almost-all --human-readable --group-directories-first --no-group")
+  ;; dired-use-ls-dired は既定の 'unspecified のままにする。初回の dired 表示時に
+  ;; ls が --dired を受けるか自分で判定して結果を保存するため、手で決め打つ必要がない。
   (setq dirvish-hide-details t)
   (setq dirvish-side-display-alist '((side . right) (slot . -1)))
   (setq dirvish-use-header-line 'global)
   (setq dirvish-header-line-height '(25 . 35))
   ;; collapse: 一本道のディレクトリを1行にまとめて表示
-  (setq dirvish-attributes '(subtree-state collapse file-time file-size))
+  ;; nerd-icons はファイル種別ごとのアイコン。03_modeline.el で導入済みで、
+  ;; フォントは Symbols Nerd Font Mono を自動選択している。
+  ;; 属性の実体は dirvish-icons 拡張にあり、attributes に名前を書くだけでは
+  ;; 読み込まれないので明示的に require する。使えない環境ではアイコン抜きにする。
+  (setq dirvish-attributes
+        (if (and (require 'dirvish-icons nil t) (require 'nerd-icons nil t))
+            '(subtree-state nerd-icons collapse file-time file-size)
+          '(subtree-state collapse file-time file-size)))
+  ;; アイコンを少しだけ大きく。行の高さは行内で一番大きい文字で決まるので、
+  ;; 上げすぎると行間が広がる。行が広がったらこの値を 1.0 に戻す。
+  (setq dirvish-nerd-icons-height 1.1)
+  ;; 開閉印 (▾ / ▸) はアイコンではなく素の文字。dirvish-subtree-state-style は
+  ;; 既定 chevron だが all-the-icons が無いと arrow (文字) に落ちる
+  ;; (dirvish-subtree.el:62)。大きさはフェイスの :height で決まる。
+  ;; フェイスは dirvish-subtree が読まれるまで存在しないので、遅らせる
+  ;; (未定義フェイスに set-face-attribute すると以降の :config が止まる)。
+  (with-eval-after-load 'dirvish-subtree
+    (set-face-attribute 'dirvish-subtree-state nil :height 1.15))
   (setq dirvish-side-attributes '(git-msg file-modes file-time file-size))
   (setq dirvish-large-directory-threshold 20000)
   (setq dirvish-header-line-format '(:left (path) :right (free-space)))
@@ -87,7 +112,20 @@
           ("e" "~/.emacs.d/" "emacs")
           ("o" "~/Documents" "Documents")
           ("t" "~/Desktop"   "Desktop")))
-  (put 'dired-find-alternate-file 'disabled nil)
+  ;; dired-find-alternate-file の有効化は leaf dired 側に集約した
+
+  ;; マウス操作 (ダブルクリック / 戻る・進む / 右クリックメニュー)。
+  ;; dirvish の履歴と quick-access を使うのでこの位置で読む。
+  (require 'my-dired-mouse)
+  (my/dired-mouse-setup)
+  ;; Bookmark サイドバー (エクスプローラー左ペイン相当)。
+  ;; ツリーが要るときは dirvish-side (M-s d) を使う。
+  (require 'my-dired-sidebar)
+  (my/quick-access-setup)
+  (bind-key "M-s q" #'my/quick-access-sidebar)
+  ;; ファイラ専用のタブ (tab-line)。bufferlo の tab-bar とは別物。
+  (require 'my-dired-tabs)
+  (my/dired-tabs-setup)
   )
 
 (provide '05_dired)

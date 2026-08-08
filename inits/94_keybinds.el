@@ -34,6 +34,9 @@
  ;; アプリを選んで開くのは M-x my/open-externally-with-app、embark の候補に
  ;; 対しては M-o a。実体は my-defuns.el。
  ("C-c o"   . my/open-externally-dwim)
+ ;; 同じ対象を OS のファイラ (Finder / エクスプローラー) で選択状態にして表示する。
+ ;; 「開く」の C-c o に対して「置き場所を見せる」側。
+ ("C-c O"   . my/reveal-in-file-manager)
  ("C-c c"   . org-capture)
  ("C-c a"   . org-agenda)
  ("C-o"     . other-window)
