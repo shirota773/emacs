@@ -24,6 +24,11 @@ dired-hacks/
 CLAUDE.md
 .claude
 
+# エージェント運用 KB (作業知見の蓄積先)。
+# ここ自体が独立した git リポジトリで、このリポジトリの履歴には入れない。
+# 中身の書式は obsidian-agent-knowledge/_meta/note-format.md。
+obsidian-agent-knowledge/
+
 # Package-installed assets (再取得できるので追跡しない)
 all-the-icons-fonts/
 yasnippet-snippets/
