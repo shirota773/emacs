@@ -41,8 +41,14 @@
           ("/" . dirvish-narrow)         ; 入力で絞り込み
           ;; マウスに経路が無い操作を左手側の1打鍵に置く (94_keybinds.el 冒頭の前提)。
           ;; e / f はどちらも dired-find-file の重複だった (l が残るので困らない)。
-          ("f" . my/dired-sort-next)     ; 名前↑→名前↓→更新時間↓→更新時間↑ を巡回
+          ;; 軸と昇降順は別の操作なのでキーも分ける。1キーで4状態を巡回させると
+          ;; 目的の並びまで最大3回押すことになり実用にならなかった。
+          ("f" . my/dired-sort-toggle-key)      ; 軸: 名前 ⇄ 更新時間 (昇降順は保つ)
+          ("M-f" . my/dired-sort-toggle-reverse) ; 今の軸の昇順 / 降順
           ("e" . my/dired-toggle-dotfiles) ; "." 始まりの表示切替
+          ;; 拡張子で外部アプリ / ブラウザへ振り分けているので、その打ち消し。
+          ;; v は dired-view-file だったが、プレビューは z (peep-dired) が担う。
+          ("v" . my/dired-open-in-emacs) ; 振り分けを無視して Emacs で開く
           ("s" . dirvish-quicksort)      ; ソート切替メニュー (拡張子順・サイズ順など)
           ("H" . dirvish-history-jump)   ; 訪問履歴からジャンプ
           ("E" . my/open-externally-dwim)
@@ -118,8 +124,12 @@
           ("t" "~/Desktop"   "Desktop")))
   ;; dired-find-alternate-file の有効化は leaf dired 側に集約した
 
-  ;; 一覧の見え方の切り替え (ソート巡回 / ドットファイル)。キーは leaf dired の :bind。
+  ;; 一覧の見え方の切り替え (ソート / ドットファイル)。キーは leaf dired の :bind。
   (require 'my-dired-view)
+  ;; 拡張子ごとの開き方。dirvish-find-entry-hook は dired--find-file を :override
+  ;; している経路なので、RET / l / クリック / パンくず / subtree を1箇所でまかなう。
+  (require 'my-dired-open)
+  (add-hook 'dirvish-find-entry-hook #'my/dired-open-dispatch)
   ;; マウス操作 (ダブルクリック / 戻る・進む / 右クリックメニュー)。
   ;; dirvish の履歴と quick-access を使うのでこの位置で読む。
   (require 'my-dired-mouse)

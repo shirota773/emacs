@@ -7,16 +7,21 @@
 ;; (dirvish-quicksort) のメニューを使う。こちらは日常的に往復する 2 軸だけを持つ。
 
 (require 'cl-lib)
+(require 'seq)
 (require 'dired)
 
 ;;; 並び順
 
-(defconst my/dired-sort-cycle
-  '((""                     . "名前 (a-z)")
-    ("--reverse"            . "名前 (z-a)")
-    ("--sort=time"          . "更新時間 (新しい順)")
-    ("--sort=time --reverse" . "更新時間 (古い順)"))
-  "`my/dired-sort-next' が巡回する並び順。
+;; 軸と昇降順は別の操作なので、キーも分ける。1 キーで 4 状態を巡回させると
+;; 目的の並びまで最大 3 回押すことになり、今どこにいるかを覚えていないと当てられない。
+;;
+;;   f    軸を切り替える (名前 ⇄ 更新時間)。昇降順は保つ
+;;   M-f  今の軸の昇順 / 降順を切り替える
+
+(defconst my/dired-sort-axes
+  '((nil          . "名前")
+    ("--sort=time" . "更新時間"))
+  "`my/dired-sort-toggle-key' が往復する並び替えの軸。
 スイッチの綴りは `dirvish-ls-quicksort-keys' と揃えてある。ずらすとモードラインの
 ソート表示と食い違う。")
 
@@ -43,19 +48,59 @@
     (setq dired-actual-switches (string-trim (concat others " " switches)))
     (revert-buffer)))
 
-(defun my/dired-sort-next ()
-  "並び順を 名前↑ → 名前↓ → 更新時間↓ → 更新時間↑ の順に切り替える。
-`s' (dirvish-quicksort) で拡張子順やサイズ順にした後にこれを押すと、
-巡回の先頭 (名前 a-z) へ戻る。"
+(defun my/dired--reversed-p ()
+  "今の並びが降順なら非 nil。"
+  (and (string-match-p "--reverse" (or dired-actual-switches "")) t))
+
+(defun my/dired--axis ()
+  "今の軸を `my/dired-sort-axes' の要素で返す。
+`s' (dirvish-quicksort) で拡張子順やサイズ順にしてある場合は nil を返す。"
+  (let ((key (my/dired--sort-key (or dired-actual-switches ""))))
+    (cond ((string-match-p "--sort=time" key) (assoc "--sort=time" my/dired-sort-axes))
+          ;; --sort=extension などが入っていたら「どちらの軸でもない」
+          ((string-match-p "--sort=" key) nil)
+          (t (assoc nil my/dired-sort-axes)))))
+
+(defun my/dired--sort-describe ()
+  "今の並び順を人が読める形で返す。`dired-actual-switches' を見るので、
+並べ替えた**後**に呼ぶこと。"
+  (let* ((axis (my/dired--axis))
+         (time (equal (car-safe axis) "--sort=time"))
+         (rev (my/dired--reversed-p)))
+    (format "%s (%s)"
+            (or (cdr axis) "その他")
+            (cond ((and time rev) "古い順") (time "新しい順")
+                  (rev "z-a") (t "a-z")))))
+
+(defun my/dired-sort-toggle-key ()
+  "並び替えの軸を 名前 ⇄ 更新時間 で切り替える。昇順 / 降順は保つ。
+`s' (dirvish-quicksort) で拡張子順やサイズ順にした後にこれを押すと、名前順に落ちる。"
   (interactive)
-  (let* ((cur (my/dired--sort-key (or dired-actual-switches "")))
-         (pos (cl-position cur my/dired-sort-cycle
-                           :key (lambda (e) (my/dired--sort-key (car e)))
-                           :test #'equal))
-         (next (nth (if pos (mod (1+ pos) (length my/dired-sort-cycle)) 0)
-                    my/dired-sort-cycle)))
-    (my/dired--apply-sort (car next))
-    (message "並び順: %s" (cdr next))))
+  (let* ((cur (my/dired--axis))
+         (axis (cond
+                ;; どちらの軸でもない (s で拡張子順やサイズ順にした後) → まず名前へ落とす。
+                ;; ここで更新時間へ跳ばすと、どちらに行くか予測できない
+                ((null cur) nil)
+                ((equal (car cur) "--sort=time") nil)
+                (t "--sort=time"))))
+    (my/dired--apply-sort
+     (string-trim (concat (or axis "") (if (my/dired--reversed-p) " --reverse" ""))))
+    (message "並び順: %s" (my/dired--sort-describe))))
+
+(defun my/dired-sort-toggle-reverse ()
+  "今の軸のまま昇順 / 降順を切り替える。
+軸には触らないので、`s' で拡張子順やサイズ順にした後でもその軸のまま反転する。"
+  (interactive)
+  (let* ((rev (my/dired--reversed-p))
+         ;; 今の並び順指定から --reverse だけ抜いたもの
+         (base (mapconcat #'identity
+                          (seq-remove (lambda (s) (equal s "--reverse"))
+                                      (split-string
+                                       (my/dired--sort-key (or dired-actual-switches ""))
+                                       " " t))
+                          " ")))
+    (my/dired--apply-sort (string-trim (concat base (if rev "" " --reverse"))))
+    (message "並び順: %s" (my/dired--sort-describe))))
 
 ;;; ドットファイル
 
