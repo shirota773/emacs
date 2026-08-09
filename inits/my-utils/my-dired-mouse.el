@@ -81,6 +81,37 @@ macOS はアプリ名 (例 \"Preview\")、Windows は実行ファイル名を書
                          (substring-no-properties (cdr icons))))
            t))))
 
+(defun my/dired--click-on-mark-column-p (event)
+  "EVENT が行頭のマーク桁 (アイコンより左) でのクリックなら非 nil。
+dired の行は [マーク 1 桁][詳細列][ファイル名] の並びで、詳細列は
+`dired-hide-details-mode' により不可視なので、見た目では**行頭の 2 桁がそのまま
+マーク領域**になる (実測: ファイル名は行頭から 42 桁目)。
+開閉印の判定より後に呼ぶこと。印のオーバーレイも行頭側に描かれるため。"
+  (when (listp event)
+    (let ((pt (posn-point (event-start event))))
+      (when pt
+        (save-excursion
+          (goto-char pt)
+          (<= pt (1+ (line-beginning-position))))))))
+
+(defun my/dired--toggle-mark ()
+  "ポイント行のマークを付け外しする。ポイントは動かさない。"
+  (let ((p (point))
+        (marked (eq (char-after (line-beginning-position)) dired-marker-char)))
+    ;; dired-mark / dired-unmark は処理後に次の行へ進むので戻す
+    (if marked (dired-unmark 1) (dired-mark 1))
+    (goto-char p)))
+
+(defun my/dired-mouse-mark (&optional event)
+  "クリックした行のマークを付け外しする。
+Alt (Option) + クリック、および行頭のマーク桁のクリックから呼ばれる。
+Ctrl + クリックは macOS がコンテキストメニューに使っている
+\(`C-down-mouse-1' = mac-mouse-context-menu) ので割り当てない。"
+  (interactive (list last-nonmenu-event))
+  (my/dired--goto-click event)
+  (when (dired-get-filename nil t)
+    (my/dired--toggle-mark)))
+
 ;;; マウスカーソルの形
 
 (defun my/dired--decorate-subtree-icons ()
@@ -121,7 +152,14 @@ macOS はアプリ名 (例 \"Preview\")、Windows は実行ファイル名を書
         (let ((beg (dired-move-to-filename)))
           (when beg
             (let ((end (dired-move-to-end-of-filename t)))
-              (when end (put-text-property beg end 'pointer 'hand)))))
+              (when end (put-text-property beg end 'pointer 'hand)))
+            ;; 行頭のマーク桁もクリックできる (マークの付け外し)。
+            ;; 詳細列が不可視なので、ここが見た目の「アイコンより左」にあたる
+            (let ((bol (line-beginning-position)))
+              (put-text-property bol (min (+ bol 2) (line-end-position))
+                                 'pointer 'hand)
+              (put-text-property bol (min (+ bol 2) (line-end-position))
+                                 'help-echo "クリックでマークの付け外し"))))
         (forward-line 1)))))
 
 ;;; 左クリック / 中クリック
@@ -132,11 +170,18 @@ macOS はアプリ名 (例 \"Preview\")、Windows は実行ファイル名を書
 EVENT が無ければポイント位置を対象にする。"
   (interactive (list last-nonmenu-event))
   (my/dired--goto-click event)
-  (if (and (my/dired--click-on-arrow-p event)
-           (when-let* ((f (dired-get-filename nil t))) (file-directory-p f)))
-      (dirvish-subtree-toggle)
-    (when (dired-get-filename nil t)
-      (dired-find-file))))
+  (cond
+   ;; ▶ / ▾ の上 → 展開・折りたたみ。印の判定を必ず先にやる
+   ((and (my/dired--click-on-arrow-p event)
+         (when-let* ((f (dired-get-filename nil t))) (file-directory-p f)))
+    (dirvish-subtree-toggle))
+   ;; アイコンより左 (マーク桁) → マークの付け外し。
+   ;; 名前の上のクリックで開かれると w (ファイル名コピー) の前に選べないため
+   ((and (my/dired--click-on-mark-column-p event)
+         (dired-get-filename nil t))
+    (my/dired--toggle-mark))
+   ((dired-get-filename nil t)
+    (dired-find-file))))
 
 (defun my/dired-mouse-open-in-new-tab (&optional event)
   "クリックした行を新しいタブで開く。
@@ -277,6 +322,13 @@ CLICK はマウスイベント。`context-menu-functions' に入れて使う。"
   ;; 明示的に ignore を置く必要がある。
   (define-key dired-mode-map [double-mouse-1] #'ignore)
   (define-key dired-mode-map [double-mouse-2] #'ignore)
+  ;; マークの付け外し。行頭のマーク桁のクリック (my/dired-mouse-open 内で分岐) に加えて
+  ;; Alt (Option) + クリックでも付け外しできるようにする。
+  ;; Ctrl + クリックは使わない。macOS では C-down-mouse-1 が mac-mouse-context-menu
+  ;; (＝右クリック相当) に割り当てられていて衝突するため。
+  ;; down 側も潰さないと mouse-drag-secondary (副選択のドラッグ) が先に走る。
+  (define-key dired-mode-map [M-down-mouse-1] #'ignore)
+  (define-key dired-mode-map [M-mouse-1] #'my/dired-mouse-mark)
   ;; サイドボタン。macOS (NS) と Windows (w32) は 3 番目以降のボタンを
   ;; mouse-4 / mouse-5 として渡す。mouse-8 / mouse-9 を送るマウスもあるので
   ;; 両方に割り当てておく。
