@@ -39,11 +39,20 @@ Emacs で開きたいときは `v' (`my/dired-open-in-emacs') か C-u を前置�
   :group 'dired)
 
 (defcustom my/dired-open-browser-exts '("html" "htm" "md" "markdown")
-  "ブラウザで開く拡張子。
-md をブラウザで開いても素のテキストが出るだけ (Chrome も Safari も Markdown を
-整形しない)。整形して読みたいなら md をここから外し
-`my/dired-open-external-exts' へ移すと、OS の既定アプリ (Marked 等) で開く。"
+  "ブラウザで開く拡張子。"
   :type '(repeat string)
+  :group 'dired)
+
+(defcustom my/dired-open-browser-app nil
+  "ブラウザで開くときに名指しするアプリ。nil なら OS の既定アプリに委ねる。
+
+**nil のままだと md はブラウザで開かない。** macOS の `open' は file:// URL を
+「拡張子の既定アプリ」で開く仕様で、.html はたまたま既定がブラウザなので動くが、
+.md は既定がエディタなので Emacs やテキストエディタに吸われる。
+確実にブラウザへ渡すにはブラウザを名指しするしかない。
+
+値は `my/open-externally' の APP に渡す (macOS はアプリ名、Windows は実行ファイル名)。"
+  :type '(choice (const :tag "OS の既定アプリに委ねる" nil) string)
   :group 'dired)
 
 (defvar my/dired-open--inhibit nil
@@ -67,7 +76,11 @@ md をブラウザで開いても素のテキストが出るだけ (Chrome も S
      (my/dired-open--inhibit nil)
      (current-prefix-arg nil)
      ((member ext my/dired-open-browser-exts)
-      (browse-url-of-file (expand-file-name file))
+      ;; ブラウザを名指しできるならそちら。browse-url-of-file は macOS では
+      ;; open "file://..." になり、拡張子の既定アプリに落ちてしまう
+      (if my/dired-open-browser-app
+          (my/open-externally file my/dired-open-browser-app)
+        (browse-url-of-file (expand-file-name file)))
       t)
      ((member ext my/dired-open-external-exts)
       (my/open-externally file)

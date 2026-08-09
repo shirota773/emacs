@@ -129,6 +129,11 @@
   ;; 拡張子ごとの開き方。dirvish-find-entry-hook は dired--find-file を :override
   ;; している経路なので、RET / l / クリック / パンくず / subtree を1箇所でまかなう。
   (require 'my-dired-open)
+  ;; md を確実にブラウザへ渡すためにブラウザを名指しする。macOS の open は
+  ;; file:// URL を「拡張子の既定アプリ」で開くので、名指ししないと .md は
+  ;; エディタに吸われる (.html は既定がブラウザなのでたまたま動く)。
+  ;; 既定ブラウザを変えたらここも変える。機種ごとに違うなら ~/.emacs.local-inits へ。
+  (when darwin-p (setq my/dired-open-browser-app "Vivaldi"))
   (add-hook 'dirvish-find-entry-hook #'my/dired-open-dispatch)
   ;; マウス操作 (ダブルクリック / 戻る・進む / 右クリックメニュー)。
   ;; dirvish の履歴と quick-access を使うのでこの位置で読む。

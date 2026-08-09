@@ -3,9 +3,10 @@
 ;; Windows エクスプローラー左ペインの「クイックアクセス」に相当する常駐サイドバー。
 ;; 登録済みのディレクトリを一覧する。
 ;;
-;;   クリック / RET   そこを dired で開く
-;;   中クリック       新しいタブで開く (dired 側と揃えてある)
-;;   q / g            閉じる / 作り直す
+;;   クリック / RET / l   そこを dired で開く
+;;   中クリック           新しいタブで開く (dired 側と揃えてある)
+;;   j / k (n / p)        次 / 前の項目へ
+;;   q / g                閉じる / 作り直す
 ;;
 ;; 一覧の出所は既にある3つをそのまま束ねる。新しい登録簿は作らない。
 ;;   - Bookmark            … C-x r m と右クリックの「Bookmark に追加」で増える
@@ -22,19 +23,30 @@
 
 (defvar my/quick-access-buffer-name "*Bookmark*")
 
-(defvar my/quick-access-width 30
-  "サイドバーの幅 (桁)。")
+(defvar my/quick-access-width 24
+  "サイドバーの幅 (桁)。
+本文側を広く取りたいので、項目名が収まる最小限にしてある。行番号を消した分も
+効いている (`my/quick-access-mode' を参照)。")
 
 (defvar-keymap my/quick-access-mode-map
-  :doc "クイックアクセスサイドバーのキーマップ。"
+  :doc "クイックアクセスサイドバーのキーマップ。
+移動は dired と同じ j/k でもできるようにしてある (n/p も残す)。"
   "q" #'quit-window
   "g" #'my/quick-access-refresh
   "n" #'forward-button
-  "p" #'backward-button)
+  "p" #'backward-button
+  "j" #'forward-button
+  "k" #'backward-button
+  ;; RET は button-map 由来で既に push-button だが、l でも開けるようにする
+  ;; (dired の l = dired-find-file と揃える)
+  "l" #'push-button)
 
 (define-derived-mode my/quick-access-mode special-mode "QuickAccess"
   "登録ディレクトリを一覧するサイドバー。"
+  ;; カーソルは消すが、代わりに行を highlight する。両方無いとキーボードで
+  ;; 動いたときに今どこに居るのか分からず、クリックでしか使えなくなる
   (setq-local cursor-type nil)
+  (hl-line-mode 1)
   (setq-local mode-line-format nil))
 
 (defun my/quick-access--dirs ()
@@ -119,6 +131,11 @@ EVENT が無ければポイント位置の項目を対象にする (キーから
   (with-current-buffer (get-buffer-create my/quick-access-buffer-name)
     (unless (derived-mode-p 'my/quick-access-mode)
       (my/quick-access-mode))
+    ;; 行番号を消す。幅の節約で、一覧に行番号は意味が無い。
+    ;; モード本体に置いても効かない。global-display-line-numbers-mode は
+    ;; after-change-major-mode-hook でオンにするので、モード本体やモードフックより
+    ;; **後**に走る (run-mode-hooks の順序)。ここで消すのが確実。
+    (display-line-numbers-mode -1)
     (let ((inhibit-read-only t))
       (erase-buffer)
       (dolist (section (my/quick-access--dirs))
