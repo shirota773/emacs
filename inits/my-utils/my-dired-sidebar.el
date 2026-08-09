@@ -3,10 +3,10 @@
 ;; Windows エクスプローラー左ペインの「クイックアクセス」に相当する常駐サイドバー。
 ;; 登録済みのディレクトリを一覧する。
 ;;
-;;   クリック / RET / l   そこを dired で開く
-;;   中クリック           新しいタブで開く (dired 側と揃えてある)
-;;   j / k (n / p)        次 / 前の項目へ
-;;   q / g                閉じる / 作り直す
+;;   左クリック / RET / l    そこを今のタブで開く
+;;   中クリック / C-<return> 新しいタブで開く (dired 側と揃えてある)
+;;   j / k (n / p)           次 / 前の項目へ
+;;   q / g                   閉じる / 作り直す
 ;;
 ;; 一覧の出所は既にある3つをそのまま束ねる。新しい登録簿は作らない。
 ;;   - Bookmark            … C-x r m と右クリックの「Bookmark に追加」で増える
@@ -37,9 +37,13 @@
   "p" #'backward-button
   "j" #'forward-button
   "k" #'backward-button
-  ;; RET は button-map 由来で既に push-button だが、l でも開けるようにする
-  ;; (dired の l = dired-find-file と揃える)
-  "l" #'push-button)
+  ;; RET と l で開く。ボタンの keymap 由来の push-button に任せると、ポイントが
+  ;; ボタン上に無いとき (見出し行・空行) にグローバルの newline へ落ちて
+  ;; 「Buffer is read-only」になる。モードマップ側で必ず受ける
+  "RET" #'my/quick-access-open
+  "l" #'my/quick-access-open
+  ;; 中クリックと揃えて、キーからも新しいタブで開けるように
+  "C-<return>" #'my/quick-access-open-in-new-tab)
 
 (define-derived-mode my/quick-access-mode special-mode "QuickAccess"
   "登録ディレクトリを一覧するサイドバー。"
@@ -95,8 +99,16 @@ Customize を経由しないので、そのままファイルに保存されて�
 (defvar my/quick-access-button-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map button-map)
-    ;; 中クリックは dired 側と同じく「新しいタブで開く」
+    ;; 左は今のタブ、中は新しいタブ。dired 側と揃える。
+    ;; follow-link は**付けない**。付けると mouse-1-click-follows-link が
+    ;; 左クリックを mouse-2 に変換し、左クリックまで新しいタブになる
+    ;; (dired で踏んだのと同じ罠)。代わりに mouse-1 を直接割り当てる。
+    (define-key map [mouse-1] #'my/quick-access-open)
     (define-key map [mouse-2] #'my/quick-access-open-in-new-tab)
+    ;; ダブルクリックは何もしない。1 回目のクリックは必ず配送されるので、
+    ;; 割り当てても未割り当て (シングルへフォールバック) でも二重に開く
+    (define-key map [double-mouse-1] #'ignore)
+    (define-key map [double-mouse-2] #'ignore)
     (define-key map (kbd "C-<return>") #'my/quick-access-open-in-new-tab)
     map)
   "サイドバーの項目に付けるキーマップ。")
@@ -114,14 +126,33 @@ NEW-TAB が非 nil なら新しいタブとして開く。"
         (my/dired-tab-open-dir-in-new-tab (expand-file-name path))
       (dired (expand-file-name path)))))
 
+(defun my/quick-access--path-at (event)
+  "EVENT の位置 (無ければポイント位置) の登録パスを返す。無ければ nil。
+ポイントがボタンの末尾寄りにあるとテキストプロパティが取れないことがあるので、
+`button-at' でも拾う。"
+  ;; (listp nil) は t なので、event が nil のときも通ってしまう。そうすると
+  ;; event-start が合成した posn を返し、ポイントが行頭へ飛んでボタンを見失う。
+  ;; 必ず (and event (listp event)) で見ること。
+  (when (and event (listp event))
+    (let ((pt (posn-point (event-start event))))
+      (when pt (goto-char pt))))
+  (or (get-text-property (point) 'my/quick-access-path)
+      (when-let* ((b (button-at (point))))
+        (button-get b 'my/quick-access-path))))
+
+(defun my/quick-access-open (&optional event)
+  "その場所を今のタブで開く。
+EVENT が無ければポイント位置の項目を対象にする (RET / l からも呼べるように)。"
+  (interactive (list last-nonmenu-event))
+  (let ((path (my/quick-access--path-at event)))
+    (unless path (user-error "ここには開ける場所がありません"))
+    (my/quick-access--open path)))
+
 (defun my/quick-access-open-in-new-tab (&optional event)
   "クリックした項目を新しいタブで開く。
 EVENT が無ければポイント位置の項目を対象にする (キーからも呼べるように)。"
   (interactive (list last-nonmenu-event))
-  (when (listp event)
-    (let ((pt (posn-point (event-start event))))
-      (when pt (goto-char pt))))
-  (let ((path (get-text-property (point) 'my/quick-access-path)))
+  (let ((path (my/quick-access--path-at event)))
     (unless path (user-error "ここには開ける場所がありません"))
     (my/quick-access--open path t)))
 
@@ -148,8 +179,9 @@ EVENT が無ければポイント位置の項目を対象にする (キーから
               (insert-text-button
                (car entry)
                'action (lambda (_) (my/quick-access--open path))
-               ;; follow-link を付けるとシングルクリック (mouse-1) で開ける
-               'follow-link t
+               ;; follow-link は付けない。付けると mouse-1 が mouse-2 に変換され、
+               ;; 左クリックが「新しいタブ」になってしまう。mouse-1 は
+               ;; my/quick-access-button-map で直接受ける
                'keymap my/quick-access-button-map
                ;; 中クリック用のハンドラが対象を知るために持たせる
                'my/quick-access-path path
@@ -157,7 +189,10 @@ EVENT が無ければポイント位置の項目を対象にする (キーから
                                   (expand-file-name path)))
               (insert "\n")))
           (insert "\n")))
-      (goto-char (point-min)))))
+      ;; 先頭ではなく最初の項目にポイントを置く。見出し行に居ると RET で
+      ;; 何も起きず、キーボードで使えないと思われてしまう
+      (goto-char (point-min))
+      (ignore-errors (forward-button 1)))))
 
 ;;;###autoload
 (defun my/quick-access-sidebar ()

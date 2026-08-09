@@ -54,8 +54,10 @@ macOS はアプリ名 (例 \"Preview\")、Windows は実行ファイル名を書
 ;; ポイント位置にフォールバックできる。
 
 (defun my/dired--goto-click (event)
-  "EVENT がマウスイベントなら、クリックした行へポイントを移す。"
-  (when (listp event)
+  "EVENT がマウスイベントなら、クリックした行へポイントを移す。
+`(listp nil)' は t なので、EVENT が nil のときに通さないよう `and' で見ること。
+通してしまうと `event-start' が合成した posn を返し、ポイントが意図せず動く。"
+  (when (and event (listp event))
     (let* ((posn (event-start event))
            (win (posn-window posn))
            (pt (posn-point posn)))
@@ -67,7 +69,8 @@ macOS はアプリ名 (例 \"Preview\")、Windows は実行ファイル名を書
 印は行頭のオーバーレイの after-string として描かれている
 \(`dirvish-subtree.el' の subtree-state 属性)。オーバーレイ由来の文字列は
 `posn-string' で取れるので、それが印と一致するかで判定する。"
-  (when (listp event)
+  ;; nil を通さない。(listp nil) は t で、event-start が合成 posn を返すため
+  (when (and event (listp event))
     (let* ((posn (event-start event))
            (str (car-safe (posn-string posn)))
            (icons (and (boundp 'dirvish-subtree--state-icons)
@@ -87,7 +90,8 @@ dired の行は [マーク 1 桁][詳細列][ファイル名] の並びで、詳
 `dired-hide-details-mode' により不可視なので、見た目では**行頭の 2 桁がそのまま
 マーク領域**になる (実測: ファイル名は行頭から 42 桁目)。
 開閉印の判定より後に呼ぶこと。印のオーバーレイも行頭側に描かれるため。"
-  (when (listp event)
+  ;; nil を通さない。(listp nil) は t で、event-start が合成 posn を返すため
+  (when (and event (listp event))
     (let ((pt (posn-point (event-start event))))
       (when pt
         (save-excursion
