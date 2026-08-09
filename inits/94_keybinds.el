@@ -1,4 +1,26 @@
 ;;; 94_keybinds.el --- グローバルキーバインド -*- lexical-binding: t; -*-
+
+;; ★ キー割り当ての前提 (身体的制約。好みではない)
+;;
+;;   Emacs pinky で左小指を痛めた経緯がある。現在はカスタムキーボードで
+;;   - Space を oneshot 化し、Space に Control modifier と Space 入力を兼ねさせている
+;;     → Ctrl 修飾は親指で押す。C- 和音を避ける必要は無い
+;;   - mod + h/j/k/l に vim 形式の矢印を割り当てている
+;;     → カーソル移動は右手ホームポジションから出る。1 文字移動コマンドが要らない
+;;
+;;   このため C-f / C-b / C-h は**意図的に**潰し、空いた一等地を主要機能に充てている。
+;;   ミスではないので標準に戻さないこと。
+;;     C-f = hydra-buffer-primary (04_bufferlo.el) / C-b = hydra-puni (05_editing.el)
+;;     C-h = delete-backward-char (下記。帰結は 02_packages.el:147 を参照)
+;;
+;;   作業姿勢は右手マウス・左手キーボード。**マウス経路が無い操作**のキーは
+;;   左手側に寄せる。マウスで 1 クリックで済む操作のキーは右手側でもよい
+;;   (両手がキーボードにあるときの副経路にすぎない)。判断軸は使用頻度ではなく
+;;   その操作にマウス経路があるか。
+;;
+;;   詳細: ~/obsidian/my-vault/30_Knowledge/2026-08-09-入力環境と身体的制約.md
+;;   変遷: review-notes.md §5
+
 ;; (require 'bind-key)
 (leaf bind-key
   :ensure t)

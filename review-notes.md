@@ -70,6 +70,39 @@
 
 ## 5. キーバインドの決定事項
 
+### 前提: 入力環境 (2026-08-09 記録。それ以前から運用されていたが未記録だった)
+
+以下の割り当ては**身体的制約が根拠**で、好みではない。
+
+- **Emacs pinky で左小指を痛めた経緯**がある。一般的な対処 (A の横に Control) でも
+  小指を使うため、カスタムキーボードで **Space を oneshot 化**し、Space キーに
+  Control modifier と Space 入力を兼ねさせている。**Ctrl 修飾は親指**で押すので、
+  `C-` 和音そのものを避ける必要は無い。
+- **`mod + h/j/k/l` に vim 形式の矢印**を割り当てている (実体は `~/dotfiles/karabiner/`)。
+  カーソル移動が右手ホームポジションから出るため、**1 文字移動コマンドが不要**になった。
+- 作業姿勢は**右手マウス・左手キーボード**。判断軸は使用頻度ではなく
+  **その操作にマウス経路があるか**。マウスで 1 クリックで済む操作 (ファイラのタブ切替など)
+  のキーは、両手がキーボードにあるときの副経路なので右手側でもよい。
+  マウス経路が無い操作 (sort、表示切替、絞り込み) は左手側に寄せる。
+
+この前提から、**`C-f` / `C-b` / `C-h` は意図的に潰してある**。空いた一等地を主要機能の
+入口に充てたもので、ミスではない。標準に戻さないこと。
+
+| キー | 割り当て | 場所 |
+|---|---|---|
+| `C-f` | `hydra-buffer-primary/body` (bufferlo) | `inits/04_bufferlo.el` |
+| `C-b` | `hydra-puni/body` (構造編集) | `inits/05_editing.el` |
+| `C-h` | `delete-backward-char` | `inits/94_keybinds.el` |
+
+`C-n` / `C-p` は生きている。`M-f` / `M-b` は `right-word` / `left-word`。
+`C-h` を潰した帰結 (`C-h` 始まりのキーが届かないので help は `<f1>` 経由) は
+`inits/02_packages.el:147` に記録済み。
+
+一次ソースは `~/obsidian/my-vault/30_Knowledge/2026-08-09-入力環境と身体的制約.md`。
+`inits/94_keybinds.el` の冒頭にも要約を置いた。
+
+### 個別の決定
+
 - `C-.` = my/dabbrev-expand-or-completing-read(embark-act は M-o のみ)
 - `C-x C-b` = ibuffer に一本化
 - `M-s h` は dirvish-history-jump / puni-beginning-of-sexp とも削除(両方未使用)
