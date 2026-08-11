@@ -111,14 +111,40 @@
 
 (leaf crux
   :ensure t
-  :config
   ;; M-o は 02_completion.el で embark-act に割り当てるためここでは外す
   ;; (crux-smart-open-line は 94_keybinds.el の C-@ に割り当て済み)
   :bind (("C-a" . crux-move-beginning-of-line)
          ("<home>" . crux-move-beginning-of-line)
          ("M-O" . crux-smart-open-line-above)
          ("<f11>" . crux-transpose-windows))
-  )
+  ;; :config ではなく :init に置く。:config は crux がロードされるまで走らないので、
+  ;; **その日はじめての C-a には advice が効かない** (実測で advice-member-p が nil
+  ;; だった)。advice-add は関数が未定義でも登録できるので先に張っておく。
+  :init
+  (define-advice crux-move-beginning-of-line
+      (:around (orig arg) my/visual-line-aware)
+    "`visual-line-mode' のときは表示行の先頭へ動く。
+
+`crux-move-beginning-of-line' は `back-to-indentation' で**論理行**の先頭に動く。
+折り返しのあるバッファでは、折り返された行の途中から押すと画面のずっと上にある
+論理行頭へ飛んでしまい、カーソルを見失う (markdown の閲覧モードで顕在化した)。
+`visual-line-mode' が C-a を `beginning-of-visual-line' へリマップしているのに
+効かないのは、こちらがグローバルに束縛して上書きしているため。
+
+表示行頭に既にいるときだけ本来の動作 (インデント位置 ⇄ 論理行頭) に落とす。
+
+着いた先が不可視テキスト (記法を隠しているバッファなど) だったら、可視な文字まで
+送る。**不可視位置に置いたポイントはカーソルを動かさない**ので、押しても何も
+起きていないように見えてしまう (実測で C-a の前後とも画面座標が同じだった)。"
+    (if (bound-and-true-p visual-line-mode)
+        (let ((origin (point)))
+          (beginning-of-visual-line)
+          (while (and (< (point) origin) (invisible-p (point)))
+            (goto-char (next-single-char-property-change
+                        (point) 'invisible nil origin)))
+          (when (= origin (point))
+            (funcall orig arg)))
+      (funcall orig arg))))
 
 (leaf comment-dwim-2
   :ensure t
@@ -176,10 +202,14 @@
   (beacon-mode 1))
 
 ;; fill-column 位置の縦線 (fci-mode は廃止された古いパッケージなので組み込みで代替)
+;;
+;; markdown からは外した (2026-08-11)。markdown-mode が入るまでこのフックは
+;; 死んでいて、入れた途端に 70 桁の縦線が本文の右に立った。散文を 70 桁で folding
+;; する運用はしておらず (`visual-line-mode' で折り返す)、線が何の位置を指すのか
+;; 分からないだけだったため。
 (leaf display-fill-column-indicator
   :tag "builtin"
-  :hook ((markdown-mode-hook
-          git-commit-mode-hook) . display-fill-column-indicator-mode))
+  :hook (git-commit-mode-hook . display-fill-column-indicator-mode))
 
 (leaf minor-mode-hack              ;;;マイナーモード衝突を解決する
   :ensure t)

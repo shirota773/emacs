@@ -67,6 +67,7 @@
 | my/tabspaces-open-project-tree | treemacs 未インストールの死にコード |
 | magit-commit への advice / status ヘッダー間引き / magit-git-debug | commit 問題の対症療法。真因解決により不要。Windows の間引きのみ windows-nt-p 分岐で維持 |
 | swiper (→ 後に復帰) | 上記 §3 参照。**削除しないこと** |
+| visual-fill-column (2026-08-11 に宣言だけ撤去) | markdown 閲覧モードの幅制限に入れたが**一度も有効化せずに終わった**。variable-pitch のバッファで桁の見積もりを外し、121 桁のウィンドウに 80 桁を指定して本文が 64 桁になる。幅の制限は自前の右マージン (`my/markdown-view--apply-margin`) でやる |
 
 ## 5. キーバインドの決定事項
 
@@ -258,6 +259,43 @@
 
 判定の観点になりそうなもの: マウスだけで完結するか / キーボードだけでも完結するか /
 OS のファイラに戻りたくなる場面が残っていないか / 誤爆する操作が無いか。
+
+### Markdown ビューア (2026-08-10 導入。3 案を併置して使用感を見る)
+
+これまで .md は Emacs に持ち込まず dired から Vivaldi に投げていた。Emacs 内で
+読めるようにするため `markdown-mode` を新規導入し、`inits/21_markdown.el` と
+`inits/my-utils/my-markdown-{preview,columns,fold}.el` を新設。**閲覧手段を 3 つ
+併置している。どれが定着するか分からないので、この時点では 1 つに寄せない。**
+
+| キー | 手段 | 性格 |
+|---|---|---|
+| `C-c C-v` | `markdown-view-mode` (記法を隠したテキスト表示) | 外部プロセス無しで即座に開く。TRAMP 越しでも動く |
+| `C-c C-c x` | pandoc + xwidget で Emacs 内に HTML 描画 | 表・脚注まで忠実。pandoc の起動ぶん遅い |
+| `C-c C-c p` | 従来どおりブラウザ (markdown-mode 標準) | |
+
+- `.md` のメジャーモードは **gfm-mode** (GFM 派生)。読む対象が Obsidian vault と
+  GitHub のリポジトリで、表・チェックボックスが効く方言が実態に合う。
+  pandoc 側の `--from=gfm` と揃えてある
+- `markdown-enable-wiki-links` を有効にし Obsidian の `[[...]]` を辿れるようにした
+- xwidget 側の CSS は `my/markdown-preview-css`。`prefers-color-scheme` で明暗
+  両対応にしてあるのは、xwidget が OS のテーマに従い Emacs のテーマを見ないため
+- **dired からクリックしたときの開き先は変えていない** (.md はブラウザのまま)。
+  上の 3 手段を使ってみてから決める。変えるなら `my/dired-open-browser-exts`
+- 02_packages.el の `display-fill-column-indicator-mode` は markdown から**外した**。
+  markdown-mode 導入で初めて生きたが、散文を 70 桁で folding する運用はしておらず
+  (`visual-line-mode` で折り返す)、線が何の位置を指すのか分からないだけだった
+- **Markdown に無い記法を閲覧モードで 2 つ足している** (2026-08-11)。標準の記法
+  ではないので、定着しなければ書いた .md ごと捨てることになる点に注意
+  - `::: cols` … `:::` (pandoc の fenced div) を**横並びに組み直す**。Markdown に
+    横並びの手段が表しか無いため。overlay で見た目だけ差し替えるので元の
+    テキストは変わらない。幅を変えたら `C-c l` で組み直す
+  - `<details>` … Notion のトグルリストのように開閉する
+- 未確認: **xwidget の実描画は GUI でしか確かめられない**。HTML 生成 (pandoc +
+  CSS 差し込み) までは batch で検証済み。macOS の xwidget は不安定という報告が
+  あるので、落ちるようなら `C-c C-c p` のブラウザに戻す
+
+判定の観点: view-mode の見た目で足りるか / xwidget を開くまでの待ちが許容できるか /
+dired のクリックを Emacs 側に寄せたくなるか。
 
 1. **exec-path-from-shell** (macOS) — GUI Emacs の PATH を fish と一致させる
 2. **TRAMP チューニング** — locks 抑止 / vc 無効化 / recentf・save-place の終了時
