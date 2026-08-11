@@ -87,8 +87,40 @@
 (leaf ghostel
   :ensure t)
 
+;; mistty の fullscreen (tmux等のTUIが起動している間) では、keymapが
+;; `mistty-fullscreen-map' に切り替わる。その親 `term-raw-map' は全キーに対する
+;; catch-all (t . term-send-raw) を持つので、キー検索が必ずそこで確定して
+;; global-mapまで届かない = M-xもC-fも素通りで端末へ送られる。適用形態は
+;; local-mapなので bind-key* なら勝てるが、それでは全major modeへ影響が出る。
+;; mistty自身が案内しているとおり `mistty-fullscreen-map' へ個別に足す。
+(defun my/mistty-global-binding ()
+  "押されたキーのEmacs側 (override-global-map / global-map) の割り当てを実行する。
+`mistty-fullscreen-map'からこれを呼ぶ形にして、キーとコマンドの対応は
+94_keybinds.el等の一箇所に残す (コマンド名をこのファイルへ写さない)。
+割り当てを変えてもこちらの追従漏れが起きない。"
+  (interactive)
+  (let* ((keys (this-command-keys-vector))
+         (cmd (or (and (boundp 'override-global-map)
+                       (lookup-key override-global-map keys))
+                  (lookup-key global-map keys))))
+    (unless (commandp cmd)
+      (user-error "%s にEmacs側の割り当てがありません" (key-description keys)))
+    (setq this-command cmd)
+    (call-interactively cmd)))
+
 (leaf mistty
-  :ensure t)
+  :ensure t
+  ;; `:config'ではなく`:defer-config' (= eval-after-load)。leafの`:config'は
+  ;; ロードを待たず即時実行されるので、mistty-fullscreen-mapがまだvoidになる。
+  :defer-config
+  ;; fullscreen中も端末へ渡さずEmacs側で処理するキー。
+  ;; 本来のキーを端末へ送りたいときは C-q <key> (mistty-send-last-key)。
+  ;;   C-f は tmux の prefix と衝突する。tmux側は prefix2 = C-b (tmux既定) を
+  ;;   併設して逃がしてある (~/.config/tmux/tmux.conf)。ここに足さないキーは
+  ;;   catch-all で端末へ素通りするので、Emacs側で使用中のC-bでも tmux に届く。
+  ;;   iTermでは従来どおりC-fが使える。
+  (dolist (key '("M-x" "C-o" "C-r" "C-t" "C-f"))
+    (keymap-set mistty-fullscreen-map key #'my/mistty-global-binding)))
 
 (leaf coterm
   :ensure t)
