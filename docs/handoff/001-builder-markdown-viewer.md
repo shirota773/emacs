@@ -29,9 +29,11 @@ Markdown に無い**横並び (`::: cols`) と折りたたみ (`<details>`)** �
 
 # 判断(なぜそうしたか)
 - 閲覧手段を 3 つ併置(view-mode / xwidget / ブラウザ)。トレードオフが逆なので一本化しない
-- 横並びは「複数行を行単位でマージし overlay の `display` で差し替える」方式。
+- 横並びは「複数行を行単位でマージし overlay で元の領域に被せる」方式。
   **元の 1 行に overlay 1 枚**を張る(ブロック全体を 1 枚で覆うとカーソルが領域先頭に
-  貼り付き、`cursor-intangible` で弾くと今度は C-n が進まなくなる)
+  貼り付き、`cursor-intangible` で弾くと今度は C-n が進まなくなる)。
+  載せ先は `before-string`(元の行は `display ""` で消す)。`display` に文字列を
+  入れる方式は 7415a29 でやめた — 入れ子の `display` が効かず桁を送れないため
 - 幅は**必ずウィンドウから実測**する。桁数 × `frame-char-width` の推定は外れる
 - `visual-fill-column` は不採用。variable-pitch のバッファで桁を外し、121 桁のウィンドウに
   80 桁指定で 56 桁のマージンを取った。`window-total-width` から引いて自前で設定している
