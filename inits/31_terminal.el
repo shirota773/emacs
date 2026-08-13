@@ -8,7 +8,8 @@
 ;; 主対象:
 ;;   native Windows Emacs -> TRAMP -> POSIX remote workstation
 ;; 副対象:
-;;   Windows local (Git Bashをフルパス指定。WSLは別コマンド C-c T w) /
+;;   Windows local (既定はGit Bashをフルパス指定。`my/terminal-windows-local-shell'
+;;     でWSLに切り替えられる。別コマンド C-c T w でも起動できる) /
 ;;   macOS local (現在は fish)
 ;;
 ;; 基本手順:
@@ -45,8 +46,12 @@
 ;;   - Windows local: パス無しの "bash" はPATH順で C:\Windows\System32\bash.exe
 ;;     (WSL起動プロキシ) を引いてしまうため、`inits/win.el' で Git Bash を
 ;;     フルパス指定して `shell-file-name' / `explicit-shell-file-name' に固定
-;;     している。C-t (`my/term-here') のWindows local分岐はそれを継承する。
-;;     WSLが必要なときは C-c T w (`my/terminal-wsl') で明示的に起動する。
+;;     している。C-t (`my/term-here') のWindows local分岐は既定でそれを継承する。
+;;     `my/terminal-windows-local-shell' を `wsl' にするとC-t自体がWSLになる
+;;     (対話shellだけ。`shell-file-name' 側 = shell-command / compile / grep /
+;;     magit はGit Bashのまま。wsl.exeは -c を取らずWindowsパスも渡せないので
+;;     バッチ実行をWSLにするとcompileのエラーマッチまで壊れる)。
+;;     単発でWSLが要るだけなら C-c T w (`my/terminal-wsl') で起動する。
 ;;
 ;; 採用判定では、見た目より次を優先する:
 ;;   接続成功、再接続、入力遅延、resize、TUI、copy/paste、日本語幅、
@@ -76,12 +81,69 @@
   :type 'string
   :group 'my/terminal)
 
+;; "-d DISTRO" だけではbufferに何も出ない。processは生きていてuname -o等の応答は
+;; 返るが、promptだけが永久に出ない (2026-07-26実測)。原因はEmacsがprocessをpipe
+;; で繋ぐことで、stdinがptyにならないためshell側の行編集 (readline / ZLE) が
+;; 「入力が無い」と判断してpromptを描画しない。起動引数ごとの実測
+;; (2026-08-12。Windows 11 / Emacs 30.1 / WSL2 Ubuntu / zsh 5.9):
+;;   -- bash -i               promptが出ない (^Mだけが返る)
+;;   -- bash --noediting -i   promptが出る
+;;   -- zsh -i                hangする (15s待っても戻らない)
+;;   -- zsh +Z -i             promptが出る
+;; bashの"--noediting"とzshの"+Z"が対応する (どちらも行編集を切ってcomintに
+;; 任せる)。`inits/win.el' がGit Bashに同じ引数を渡しているのと同じ理由。
+;; 既定をbashにするとログインシェルがzshの環境で ~/.zshenv / ~/.zshrc
+;; (ZDOTDIR委譲を含む) が一切読まれず、distro既定の素のpromptになる。
+;; -l (login) は付けない。Ubuntuのmotdとlandscape-sysinfoのpython tracebackが
+;; 数十行流れてpromptが埋もれるだけで、PATHは.bashrcとWSL interopで既に揃って
+;; いる (2026-07-26実測)。
+;; この実測は会社PCの `emacs -Q --batch' のcomint経路まで。GUIでの実操作
+;; (promptの見え方、OSCタイトル列、ANSI色、日本語入力、TAB補完、C-c C-c) は未確認。
+(defcustom my/terminal-wsl-shell-command '("zsh" "+Z" "-i")
+  "WSL内で起動するshellとその引数。
+WindowsのEmacsはptyを持たずpipeで繋ぐため、行編集を切る引数が必須:
+  zsh : (\"zsh\" \"+Z\" \"-i\")            +Zが無いと起動時にhangする
+  bash: (\"bash\" \"--noediting\" \"-i\")   --noeditingが無いとpromptが出ない
+\"-i\"は必須。これが無いとrcファイルを読まない。
+既定のzshがdistroに入っていない場合はbashの方をlocal側でsetqする。"
+  :type '(repeat string)
+  :group 'my/terminal)
+
+(defcustom my/terminal-wsl-start-in-home t
+  "非nilならWSL側の$HOMEで開く (wsl.exeの --cd ~)。
+nilならWindows側の`default-directory'が /mnt/c/... に変換されて渡り、
+Linux側のホームから始まらない。"
+  :type 'boolean
+  :group 'my/terminal)
+
+(defcustom my/terminal-windows-local-shell 'git-bash
+  "Windows localで C-t (`my/term-here') が使うshell。
+`git-bash'は`inits/win.el'が固定したGit Bash、`wsl'は`my/terminal-wsl'と
+同じ起動設定のWSL。切り替えても`shell-file-name' (shell-command / compile /
+grep / magit) はGit Bashのまま。wsl.exeは -c を取らずWindowsパスも渡せない
+ので、対話shellだけをWSLにするのが正しい切り分け。"
+  :type '(choice (const git-bash) (const wsl))
+  :group 'my/terminal)
+
 ;; shell.el は引数変数を
 ;;   (intern-soft (concat "explicit-" (file-name-nondirectory prog) "-args"))
 ;; で探すので、wsl.exeをフルパスで起動する場合はこの名前が必要。
 ;; 実際の値は `my/terminal-wsl' がlet-bindする。
 (defvar explicit-wsl.exe-args nil
   "`M-x shell'がwsl.exeを起動するときに渡す引数。")
+
+;; WSL側の出力はUTF-8。processのcoding systemは生成時に確定するので、生成後の
+;; `set-process-coding-system'では初回出力 (PS1を含む) の復号に間に合わない。
+;; 関数内でlet-bindすると`my/terminal-wsl'を通る経路にしか効かないため、
+;; `process-coding-system-alist'に入れて素の`M-x shell'経由でも効くようにする
+;; (local-initsからも同じ形で足せる。globalなdefault-process-coding-systemと
+;; 違いwsl.exeにしか当たらないのでEmacs全体は汚さない)。
+;; WSL_UTF8=1はwsl.exe自身の診断message (distro名の誤り等) を既定のUTF-16LEから
+;; UTF-8へ揃えるためのもの。wsl.exeしか読まない変数なのでglobalな`setenv'で実害
+;; がない。
+(when (eq system-type 'windows-nt)
+  (add-to-list 'process-coding-system-alist '("wsl\\.exe" . utf-8-unix))
+  (setenv "WSL_UTF8" "1"))
 
 ;; パッケージは起動時にインストールするが、試験コマンドを押すまでloadしない。
 (leaf ghostel
@@ -282,11 +344,17 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
               (with-current-buffer buf
                 (rename-buffer
                  (if arg (generate-new-buffer-name buf-name) buf-name) t))))
-        (let ((explicit-shell-file-name
-               (if (my/terminal--remote-p)
-                   my/terminal-remote-shell
-                 explicit-shell-file-name)))
-          (shell (if arg (generate-new-buffer-name buf-name) buf-name)))))))
+        (let ((name (if arg (generate-new-buffer-name buf-name) buf-name)))
+          (cond
+           ((my/terminal--remote-p)
+            (let ((explicit-shell-file-name my/terminal-remote-shell))
+              (shell name)))
+           ;; Windows localのshellはlocal-initsから切り替えられる。既定は
+           ;; `inits/win.el' が固定したGit Bash。
+           ((and (eq system-type 'windows-nt)
+                 (eq my/terminal-windows-local-shell 'wsl))
+            (my/terminal--wsl-shell name))
+           (t (shell name))))))))
 
 (defun my/terminal--wsl-program ()
   "起動するwsl.exeの絶対パスを返す。見つからなければuser-error。"
@@ -295,11 +363,33 @@ C-u (ARG) 付きで同じ接続に新しいbufferを追加する。"
       (executable-find "wsl.exe")
       (user-error "wsl.exeが見つかりません。WSLが有効か確認してください")))
 
+(defun my/terminal--wsl-args ()
+  "wsl.exeへ渡す引数リストを返す。
+--cdはwsl.exe自身のoptionなので \"--\" より前に置く。
+defcustomはこの関数が呼ばれた時点で読む。`init.el'が ~/.emacs.local-inits を
+inits/ の後にloadするので、load時に値を焼き込むとlocal側のsetqが間に合わない
+(`inits/32_tramp.el'が同じ理由でafter-init-hook再適用をしている)。"
+  (append (when my/terminal-wsl-start-in-home '("--cd" "~"))
+          (list "-d" my/terminal-wsl-distro "--")
+          my/terminal-wsl-shell-command))
+
+(defun my/terminal--wsl-shell (buf-name)
+  "wsl.exe経由のshellをBUF-NAMEで開く。
+`my/terminal-wsl' と C-t のWindows local分岐 (`my/terminal-windows-local-shell'
+が `wsl' のとき) で共用する。"
+  (require 'shell)
+  ;; wsl.exeはWindows側のcwd (C:\...) を /mnt/c/... へ自動変換して起動するため、
+  ;; default-directoryをこちら側で変換する必要はない。
+  (let ((explicit-shell-file-name (my/terminal--wsl-program))
+        (explicit-wsl.exe-args (my/terminal--wsl-args)))
+    (shell buf-name)))
+
 (defun my/terminal-wsl (&optional arg)
   "WSL (`my/terminal-wsl-distro') のshellを現在地で開く。
 Windows local専用。C-t (`my/term-here') の既定はGit Bashなので、WSLが必要な
-ときだけこちらを使う。distro単位のbuffer名 (*shell:wsl-Ubuntu* など) で
-生存プロセスのbufferを再利用する。
+ときだけこちらを使う (C-t 自体をWSLにするなら
+`my/terminal-windows-local-shell' を `wsl' にする)。distro単位のbuffer名
+\(*shell:wsl-Ubuntu* など) で生存プロセスのbufferを再利用する。
 C-u (ARG) 付きで新しいbufferを追加する。"
   (interactive "P")
   (unless (eq system-type 'windows-nt)
@@ -309,47 +399,12 @@ C-u (ARG) 付きで新しいbufferを追加する。"
   ;; 引き継がない)。remote bufferからは黙って別の場所を開かず拒否する。
   (when (my/terminal--remote-p)
     (user-error "TRAMP bufferからはWSLを起動できません。C-t か C-c T m を使ってください"))
-  (require 'shell)
   (let* ((buf-name (format "*shell:wsl-%s*" my/terminal-wsl-distro))
          (existing (get-buffer buf-name)))
     (if (and existing (get-buffer-process existing) (not arg))
         (pop-to-buffer existing)
-      ;; wsl.exeはWindows側のcwd (C:\...) を /mnt/c/... へ自動変換して起動する
-      ;; ため、default-directoryをこちら側で変換する必要はない。
-      (let* ((explicit-shell-file-name (my/terminal--wsl-program))
-             ;; "-d DISTRO" だけではbufferに何も出ない。processは生きていて
-             ;; uname -o等の応答は返るが、promptだけが永久に出ない
-             ;; (2026-07-26実測)。原因はEmacsがprocessをpipeで繋ぐことで、
-             ;; stdinがptyにならないためshell側の行編集 (readline / ZLE) が
-             ;; 「入力が無い」と判断してpromptを描画しない。起動引数ごとの実測
-             ;; (2026-08-12。Windows 11 / Emacs 30.1 / WSL2 Ubuntu):
-             ;;   -- bash -i               promptが出ない (^Mだけが返る)
-             ;;   -- bash --noediting -i   promptが出る
-             ;;   -- zsh -i                hangする (15s待っても戻らない)
-             ;;   -- zsh +Z -i             promptが出る
-             ;; bashの"--noediting"とzshの"+Z"が対応する (どちらも行編集を切って
-             ;; comintに任せる)。`inits/win.el' がGit Bashに同じ引数を渡している
-             ;; のと同じ理由。
-             ;; "-i" は必須。これが無いとrcファイルを読まない。
-             ;; この実測は会社PCの `emacs -Q --batch' のcomint経路まで。GUIでの
-             ;; 実操作 (promptの見え方、OSCタイトル列、ANSI色、日本語入力、TAB
-             ;; 補完、C-c C-c) は未確認。
-             ;; -l (login) は付けない。Ubuntuのmotdとlandscape-sysinfoの
-             ;; python tracebackが数十行流れてpromptが埋もれるだけで、PATHは
-             ;; .bashrcとWSL interopで既に揃っている (2026-07-26実測)。
-             (explicit-wsl.exe-args
-              (list "-d" my/terminal-wsl-distro "--" "bash" "--noediting" "-i"))
-             ;; WSL側の出力はUTF-8。processのcoding systemは生成時に確定する
-             ;; ので、生成後の`set-process-coding-system'では初回出力 (PS1を
-             ;; 含む) の復号に間に合わない。必ず生成前にlet-bindする。
-             (coding-system-for-read 'utf-8-unix)
-             (coding-system-for-write 'utf-8-unix)
-             ;; wsl.exe自身の診断message (distro名の誤り等) だけは既定で
-             ;; UTF-16LE。上のutf-8指定のまま読むと化けるのでWSL_UTF8=1で
-             ;; UTF-8に揃える。globalな`setenv'は他のprocessにも波及するため
-             ;; ここだけのlet-bindで渡す。
-             (process-environment (cons "WSL_UTF8=1" process-environment)))
-        (shell (if arg (generate-new-buffer-name buf-name) buf-name))))))
+      (my/terminal--wsl-shell
+       (if arg (generate-new-buffer-name buf-name) buf-name)))))
 
 (defun my/terminal--environment-summary ()
   "現在の比較環境を文字列で返す。"
@@ -428,7 +483,8 @@ C-u (ARG) 付きで新しいbufferを追加する。"
       (princ "MisTTYのnative Windows利用は公式確認外なので、失敗も評価結果です。\n")
       (princ "eatはnative Windows非対応、Rosetta実行のEmacsではTUIでフリーズのためガード中です。\n")
       (princ "常用のC-tは接続単位shell (my/term-here) です。TUIはmistty (C-c T m) が無事です。\n")
-      (princ "Windows localのshellはGit Bashにフルパス固定 (inits/win.el)。WSLはC-c T wです。\n"))))
+      (princ "Windows localのshellは既定でGit Bash (inits/win.el)。my/terminal-windows-local-shellをwslにするとC-tがWSLになります。\n")
+      (princ "単発でWSLが要るだけならC-c T wです。\n"))))
 
 (defvar-keymap my/terminal-prefix-map
   :doc "Terminal backend comparison commands."

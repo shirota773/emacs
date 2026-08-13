@@ -93,9 +93,10 @@
 
 ;; C-t: local/TRAMPを判定して接続単位のterminalを開く (my/term-here)。
 ;; macOSはmistty (TUI対応)、native Windowsはshellに自動分岐。
-;; Windows localのshellはGit Bashをフルパス指定で固定 (inits/win.el参照)。
+;; Windows localのshellは既定でGit Bashをフルパス指定 (inits/win.el参照)。
 ;; パス無しの"bash"はPATH順でSystem32\bash.exe=WSLを引くための対策。
-;; WSLを使いたいときは C-c T w (my/terminal-wsl) で明示的に起動する。
+;; my/terminal-windows-local-shellをwslにするとC-t自体がWSLになる (対話shellだけ。
+;; shell-command/compile/grep/magitはGit Bashのまま)。単発なら C-c T w。
 ;; eatはRosetta実行のEmacsでTUI出力によりフリーズするため不採用 (31参照)。
 ;; minibufferではvertico-mapのC-t (ディレクトリジャンプ) を優先させるため、
 ;; override (bind-keys*) ではなく通常のglobal-mapに置く。

@@ -158,6 +158,13 @@ shell + coterm / eat を同じ作業ディレクトリから比較するため�
 
 - **採用中**: `C-t` = `my/term-here` (macOS では mistty、native Windows では
   接続単位 shell)。mistty は fzf/tmux 等の TUI で実証済み
+- **Windows local の shell**: 既定は Git Bash (`inits/win.el` でフルパス固定)。
+  `my/terminal-windows-local-shell` を `'wsl` にすると `C-t` 自体が WSL の
+  ログインシェル (既定 zsh) になる。切り替わるのは対話 shell だけで、
+  `shell-file-name` 側 (shell-command / compile / grep / magit) は Git Bash の
+  まま。WSL 側の shell と起動ディレクトリは `my/terminal-wsl-shell-command` /
+  `my/terminal-wsl-start-in-home` で変えられる。**GUI での実操作は未確認**
+  (会社 PC の `emacs -Q --batch` の comint 経路まで。2026-08-12 実測)
 - **ガード中**: eat は Rosetta 実行 (x86_64 Emacs) で TUI 出力によりフリーズ
   するため使用不可 (2026-07-24 実測)。arm64 ネイティブ Emacs へ乗り換えたら
   ガードは自動解除される
