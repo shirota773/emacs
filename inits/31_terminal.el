@@ -317,16 +317,28 @@ C-u (ARG) 付きで新しいbufferを追加する。"
       ;; wsl.exeはWindows側のcwd (C:\...) を /mnt/c/... へ自動変換して起動する
       ;; ため、default-directoryをこちら側で変換する必要はない。
       (let* ((explicit-shell-file-name (my/terminal--wsl-program))
-             ;; "-d DISTRO" だけではbufferに何も出ない。Emacsはprocessをpipeで
-             ;; 繋ぐためstdinがptyにならず、wsl.exeは既定shellを非対話modeで
-             ;; 起動する = PS1を出さない (2026-07-26実測。processは生きていて
-             ;; uname -o等の応答は返るが、promptだけが永久に出ない)。
-             ;; "-- bash -i" で対話modeを明示するとPS1が出てcomintが成立する。
+             ;; "-d DISTRO" だけではbufferに何も出ない。processは生きていて
+             ;; uname -o等の応答は返るが、promptだけが永久に出ない
+             ;; (2026-07-26実測)。原因はEmacsがprocessをpipeで繋ぐことで、
+             ;; stdinがptyにならないためshell側の行編集 (readline / ZLE) が
+             ;; 「入力が無い」と判断してpromptを描画しない。起動引数ごとの実測
+             ;; (2026-08-12。Windows 11 / Emacs 30.1 / WSL2 Ubuntu):
+             ;;   -- bash -i               promptが出ない (^Mだけが返る)
+             ;;   -- bash --noediting -i   promptが出る
+             ;;   -- zsh -i                hangする (15s待っても戻らない)
+             ;;   -- zsh +Z -i             promptが出る
+             ;; bashの"--noediting"とzshの"+Z"が対応する (どちらも行編集を切って
+             ;; comintに任せる)。`inits/win.el' がGit Bashに同じ引数を渡している
+             ;; のと同じ理由。
+             ;; "-i" は必須。これが無いとrcファイルを読まない。
+             ;; この実測は会社PCの `emacs -Q --batch' のcomint経路まで。GUIでの
+             ;; 実操作 (promptの見え方、OSCタイトル列、ANSI色、日本語入力、TAB
+             ;; 補完、C-c C-c) は未確認。
              ;; -l (login) は付けない。Ubuntuのmotdとlandscape-sysinfoの
              ;; python tracebackが数十行流れてpromptが埋もれるだけで、PATHは
-             ;; .bashrcとWSL interopで既に揃っている (同日実測)。
+             ;; .bashrcとWSL interopで既に揃っている (2026-07-26実測)。
              (explicit-wsl.exe-args
-              (list "-d" my/terminal-wsl-distro "--" "bash" "-i"))
+              (list "-d" my/terminal-wsl-distro "--" "bash" "--noediting" "-i"))
              ;; WSL側の出力はUTF-8。processのcoding systemは生成時に確定する
              ;; ので、生成後の`set-process-coding-system'では初回出力 (PS1を
              ;; 含む) の復号に間に合わない。必ず生成前にlet-bindする。
