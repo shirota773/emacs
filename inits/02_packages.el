@@ -37,6 +37,28 @@
           ))
   )
 
+;; !! この上の viewer leaf の :bind は現状ひとつも効いていない !!
+;; leaf の :bind は (with-eval-after-load 'viewer ...) に展開されるが、viewer は
+;; :require していないうえ誰も呼ばないので最後までロードされない。
+;; 実測 (emacs --batch -l init.el 直後):
+;;   featurep viewer = nil / h = describe-mode / SPC = View-scroll-page-forward
+;;   j k J G l = nil (未割り当て)
+;; つまり h=backward-char などの vim 風バインドは一度も有効になっていない。
+;; 有効化する場合は viewer leaf に :require t を足す (viewer-stay-in-setup も
+;; 同時に効き始めるので挙動が変わる)。
+;;
+;; 下の view (組み込み) への :bind は viewer のロード有無に関係なく効く。
+(leaf view
+  :bind ((:view-mode-map
+          ;; DEL の既定は View-scroll-page-backward。選択して BS で消そうとすると
+          ;; 静かに 1 画面戻ってしまい事故るので、理由を知らせるだけにする。
+          ;; 後方スクロールは既定の S-SPC に残る。定義は 03_view-visual.el。
+          ("DEL" . my/view-refuse-edit)
+          ;; C-h はこの設定では delete-backward-char (実質の BS)。view-mode-map では
+          ;; 未定義でグローバルに落ち、read-only エラーになるが ring-bell-function が
+          ;; ignore なので音も光も出ず「何も起こらない」ように見える。同じ扱いにする。
+          ("C-h" . my/view-refuse-edit))))
+
 (leaf avy
   :ensure t
   :bind
