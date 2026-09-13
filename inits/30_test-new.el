@@ -11,6 +11,7 @@
 ;;   4. treesit / eglot      — tree-sitter ハイライトと LSP
 ;;   5. diff-hl              — バッファ左端に git の変更表示
 ;;   6. go-translate         — text-translator の後継 (翻訳)
+;;   7. カーソル位置の履歴    — mark-ring を遡る (2026-09-13 試用開始)
 ;;
 ;; 番号を詰めないのは inits/README.md と review-notes.md がこの番号で
 ;; 各セクションを参照しているため。
@@ -149,6 +150,36 @@
   (setq gt-default-translator
         (gt-translator :engines (gt-google-engine)
                        :render (gt-buffer-render))))
+
+;; =============================================================================
+;; 7. カーソル位置の履歴 (試用 2026-09-13)
+;; 「さっき居た場所に戻る」手段が pop-global-mark (C-x C-SPC) しか無かった。
+;; しかも C-SPC は 05_editing.el で my/puni-region-selection-start に割り当たって
+;; おり prefix を見ないため、標準の C-u C-SPC (ローカル mark を遡る) が使えない。
+;;
+;; 新しいパッケージは入れず、まず組み込みの mark-ring + consult で足りるか試す。
+;; キーはマウス経路の無い操作なので左手側の M-g (goto-map) 配下に置く。
+;; m/k/b は goto-map で空いている (r w l i g c p n TAB は使用済み)。
+;;
+;; **限界**: mark-ring に積まれるのはジャンプ系の操作 (isearch / avy / consult-line /
+;; goto-line / beginning-of-buffer など) だけで、普通のカーソル移動は積まれない。
+;; 「移動した場所を全部たどる」感覚が要るなら dogears や better-jumper が要る。
+;; =============================================================================
+
+(defun my/pop-mark-back ()
+  "直前のマーク位置へ戻る。連続して押すとさらに遡る (repeat-mode)。"
+  (interactive)
+  (set-mark-command '(4)))
+
+(defvar-keymap my/pop-mark-repeat-map
+  :doc "`my/pop-mark-back' を b の連打で繰り返すための repeat-map。"
+  :repeat t
+  "b" #'my/pop-mark-back)
+
+(bind-keys :map goto-map
+           ("b" . my/pop-mark-back)      ; 直前の位置へ戻る (b 連打で遡る)
+           ("m" . consult-mark)          ; このバッファのマーク履歴を一覧
+           ("k" . consult-global-mark))  ; バッファをまたいだマーク履歴を一覧
 
 (provide '30_test-new)
 ;;; 30_test-new.el ends here
