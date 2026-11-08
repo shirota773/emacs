@@ -102,6 +102,17 @@
 ;; override (bind-keys*) ではなく通常のglobal-mapに置く。
 (bind-key "C-t" #'my/term-here)
 
+;; C-z / C-x C-z: 何もしない (2026-11-08)。suspend-frame は使わない。
+;; 他アプリ (Windows の標準) の undo が C-z なので誤爆し、GUI では frame が
+;; アイコン化して復帰が面倒になる。suspend に届く既定キーはこの 2 つだけなので
+;; 両方潰す。
+;; undo 系は 03_undo.el 側: C-/ = undo-fu-only-undo / C-\ = redo / C-x u = vundo。
+;; override (bind-keys*) ではなく global-map に置く。C-z を自前で使う
+;; major-mode (term の fullscreen が term-raw-map で全キーを拾う等) を潰さない
+;; ため。端末へ ^Z を送るのは mistty/term とも C-c C-z で、bare C-z ではない。
+(bind-key "C-z" #'ignore)
+(bind-key "C-x C-z" #'ignore)
+
 (when darwin-p
    (bind-key (kbd "C-M-o") 'other-window))
 ;;マクロ

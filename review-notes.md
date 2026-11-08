@@ -201,6 +201,27 @@
     - 検証は `call-process` を差し替えて引数の組み立てだけを見た
       (実際にアプリを起動せずに済ませるため)
 
+- magit の入口を `C-c g` / `C-c f` に移した (2026-11-08)。**`C-x M-g` / `C-c M-g`
+  には戻さない**。Ctrl も Alt も左親指で押す配列なので、1 つのキー列の中で
+  親指を押し替えることになり押しづらいのが理由 (好みではない)。
+
+  | キー | 割り当て |
+  |---|---|
+  | `C-x g` | `magit-status` (変更なし) |
+  | `C-c g` | `magit-dispatch` |
+  | `C-c f` | `magit-file-dispatch` — 開いているファイルの diff/log/blame/旧リビジョン |
+
+  - magit 自身が `magit-define-global-key-bindings` の `'recommended` として
+    用意している 3 つと同一。この値にすると magit 側が Alt 版を足さなくなる
+    (`magit.el` の `magit-maybe-define-global-key-bindings`)
+  - `C-c f` / `C-c g` は global-map・override-global-map ともに空きを実測して選んだ
+  - **単打鍵の一等地には移せない**: 左手側で空いているのは `C-q` / `C-z` だけで、
+    どちらも痛めた左小指を使う (`C-v` は cua-scroll-up、`C-d` は delete-char、
+    `C-r` は navigation-util.el の UI、`C-t` は my/term-here)
+  - `magit-file-dispatch` は閲覧運用の主入口。`d` 差分 / `l` ログ / `b` blame /
+    `p` `n` で旧リビジョンの blob を遡る / `t` 定義の変遷。dired でも効く。
+    これがあるので **git-timemachine は入れない** (blob 操作で足りる)
+
 ## 6. 構造変更
 
 - tabspace-util.el (818行) を分割:
