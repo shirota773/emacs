@@ -55,6 +55,23 @@ x86_64 プロセスからは開けず、arm64 プロセスからは開ける。*
 節番号は `2-1` 〜 `2-6` のまま (この README と `review-notes.md` の参照先を
 生かすため)。内訳はファイル冒頭の Commentary を参照。
 
+### TRAMP を ELPA 版 (2.8) に上げた — 2026-11-09
+
+`01_builtin-upgrade.el` が起動時に 2.8 未満なら GNU ELPA 版を入れる
+(Windows の 30.1 / Tramp 2.7.1 も次の起動で上がる)。mac は 2.8.2.4。
+
+- 確認済み (mac / batch): フル init で ELPA 版が読まれる、設定が参照する
+  TRAMP の関数・変数が全部ある、ControlMaster 抑止は新しい変数名
+  `tramp-use-connection-share` で効く、補完ソース差し替え、2-3 節の
+  接続履歴からの候補生成、mock メソッド (ローカル sh) 経由で
+  ファイルを開く・view-mode・dired・リモートでのコマンド実行
+- **実 ssh では未確認** (mac から入れるホストが無い)。Windows の
+  初回起動で入るか (プロキシで失敗すると警告が出て 2.7.1 のまま)
+- 版が変わると TRAMP は接続キャッシュ (`var/tramp/persistency.el`) を
+  捨てる。初回だけ 2-3 節の「過去に繋いだホスト」の補完候補が消える
+- 戻すとき: `M-x package-delete` で tramp を消し、
+  `my/builtin-upgrade-packages` から外す
+
 ### 検証状況 — 2026-07-27 時点
 
 - Windows 11 / Emacs 30.1 / Tramp 2.7.1: 実機検証済み

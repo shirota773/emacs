@@ -21,6 +21,10 @@
 ;;     ControlPath ~/.ssh/cm-%r@%h:%p
 ;;     ControlPersist 10m
 ;;
+;; TRAMP 本体は 01_builtin-upgrade.el が ELPA 版 (2.8 以上) に上げている
+;; (2026-11-09)。下のコメントにある「29.4 tramp-sh.el:NNN」などの行番号は
+;; 書いた当時の同梱版のもの。ELPA 版では行がずれている。
+;;
 ;; ロード順: 32 は 02_completion.el (consult / consult-dir / embark) や
 ;; 04_bufferlo.el (tab-dir-util の consult-dir ソース) より後になる。ただし
 ;; ここでの登録はすべて with-eval-after-load か after-init-hook 経由なので
@@ -70,10 +74,12 @@
   Windows では元から nil。この関数に意味があるのは macOS 側。"
   (with-eval-after-load 'tramp-sh
     (cond
-     ;; Emacs 30.1 以降 (Tramp 2.7.1 以降)
+     ;; Tramp 2.7.1 以降 (Emacs 30.1 以降の同梱版、または 01_builtin-upgrade.el
+     ;; が入れる ELPA 版。2026-11-09 以降は 29.4 でもこちらを通る)
      ((boundp 'tramp-use-connection-share)
       (setq tramp-use-connection-share nil))
-     ;; Emacs 29.4 (Tramp 2.6 系)。新しい名前が無いため旧名を使う
+     ;; Tramp 2.6 系 (Emacs 29.4 の同梱版。ELPA 版が入らなかったときだけ通る)。
+     ;; 新しい名前が無いため旧名を使う
      ((boundp 'tramp-use-ssh-controlmaster-options)
       (setq tramp-use-ssh-controlmaster-options nil)))))
 

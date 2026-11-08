@@ -290,6 +290,18 @@
   の ssh 4 本、embark の `X`、`find-file-hook` 3 本、`32_tramp.el` の
   byte-compile 警告ゼロを確認
 
+### TRAMP を ELPA 版に上げる仕組み (2026-11-09)
+
+`inits/01_builtin-upgrade.el` を追加。同梱パッケージのうち ELPA の新しい版を
+使いたいものを、最低バージョンより古ければ起動時に入れる。今は tramp (2.8 以上)
+だけ。Emacs 本体 (mac port 29.4) は据え置きのまま TRAMP 2.8 の改善を得るため。
+
+- leaf の `:ensure t` では上げられない。`package-installed-p` が同梱版を見て
+  導入済みと答えるため。ELPA 版の package-desc を `package-install` に渡す
+- 01 番台の先頭に置くのは、31/32 が `(require 'tramp)` する前に入れるため。
+  後から入れるとそのセッションは古い版のまま動く
+- 検証状況と戻し方は `inits/README.md` の 32_tramp.el 節
+
 ## 7. 試用中 — 判定待ち
 
 セクション単位で「定着なら NN_name.el へ昇格 / 不要なら削除」する。
