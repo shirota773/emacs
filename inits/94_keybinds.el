@@ -163,6 +163,44 @@
     :region forward-word)
   )
 
+;; ★ 移動系のキーはどのモードでも同じ動作にする (2026-11-08)
+;;   global-map に置いたキーは major-mode / minor-mode のキーマップに負ける。
+;;   実測で次の上書きがあった (読むだけのバッファほど困る):
+;;     C-j      view-mode → 1 行スクロール / *scratch* → eval-print / org → 改行
+;;     M-←/→    Bookmark 一覧・Buffer 一覧 → 列の移動
+;;     M-w      magit → リビジョンのコピー
+;;   そこで override-global-map (bind-key* と同じ最優先のマップ) にも置く。
+;;   ただし素の bind-key* にはしない。最優先なので次の 2 つまで奪ってしまう:
+;;     - ミニバッファ: vertico-map の C-j = vertico-exit-input、
+;;       C-r = バッファ一覧と recentf の切り替え (02_completion.el)
+;;     - 端末 (term / mistty など): キーを端末側のプログラムへ渡す必要がある
+;;       (シェルの C-r = 履歴検索など)
+;;   menu-item の :filter で、この 2 か所では nil を返して素通しにする。素通し
+;;   した先は今までどおり global-map の同じコマンドなので、そこでの動作は変わらない。
+;;   org / markdown の M-← などの構造編集は使えなくなる (編集はほぼしないので許容)。
+(defvar my/motion-keys-passthrough-modes
+  '(term-mode mistty-mode eat-mode vterm-mode)
+  "移動系キーを奪わず、モード側 (端末) に渡す major-mode。")
+
+(defun my/motion-key-filter (cmd)
+  "ミニバッファと端末では nil を返し、通常のキー探索に任せる。
+それ以外では CMD をそのまま返す。"
+  (unless (or (minibufferp)
+              (apply #'derived-mode-p my/motion-keys-passthrough-modes))
+    cmd))
+
+(dolist (binding '(("C-j"       . bufferlo-switch-to-buffer)
+                   ("C-f"       . hydra-buffer-primary/body)
+                   ("C-r"       . my/local-buffer-or-recentf)
+                   ("C-;"       . consult-buffer)
+                   ("M-w"       . mykie:global-map:M-w:key) ; 上の mykie が作るコマンド
+                   ("M-<left>"  . windmove-left)
+                   ("M-<right>" . windmove-right)
+                   ("M-<up>"    . windmove-up)
+                   ("M-<down>"  . windmove-down)))
+  (define-key override-global-map (kbd (car binding))
+              `(menu-item "" ,(cdr binding) :filter my/motion-key-filter)))
+
 (provide '94_keybinds)
 
 

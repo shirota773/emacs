@@ -11,7 +11,7 @@
 ;; 一覧の出所は既にある3つをそのまま束ねる。新しい登録簿は作らない。
 ;;   - Bookmark            … C-x r m と右クリックの「Bookmark に追加」で増える
 ;;   - `dirvish-quick-access-entries' (05_dired.el)  … キーボードの a と共通
-;;   - `my/global-dirs' (tab-dir-util.el)            … consult-dir と共通
+;;   - `my/global-dirs-all' (tab-dir-util.el)        … consult-dir / hydra の gj と共通
 ;;
 ;; ツリー表示が要るときは dirvish-side (M-s d) を併用する。こちらは
 ;; 「ピン留めした場所の一覧」に徹する。
@@ -70,8 +70,9 @@
                    (let ((path (nth 1 e)))
                      (cons (or (nth 2 e) path) path)))
                  dirvish-quick-access-entries))
+   ;; hydra の ga / gc で登録した分と my/global-dirs を合わせたもの
    (cons "登録ディレクトリ"
-         (and (boundp 'my/global-dirs) my/global-dirs))))
+         (and (fboundp 'my/global-dirs-all) (my/global-dirs-all)))))
 
 (defun my/dired-bookmark-add ()
   "この場所を Bookmark に登録する。

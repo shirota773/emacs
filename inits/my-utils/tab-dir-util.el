@@ -30,8 +30,11 @@
   :group 'convenience)
 
 (defcustom my/global-dirs nil
-  "全プロセス共通でよく使うディレクトリの alist。
-各要素は (ラベル . 絶対パス)。タブ候補の後ろに提示される。"
+  "全プロセス共通でよく使うディレクトリの alist (コードで書く分)。
+各要素は (ラベル . 絶対パス)。機種ごとの値は ~/.emacs.local-inits に書く。
+hydra (C-f) の ga / gc で登録した分は別ファイルに保存され、両方を合わせたものが
+`my/global-dirs-all' になる。custom-file が null-device なので Customize では
+保存できない (init.el)。"
   :type '(alist :key-type string :value-type string)
   :group 'convenience)
 
@@ -39,10 +42,24 @@
 ;; 永続ストア (タブ名 → (:process-root STR :directories ALIST))
 ;; ---------------------------------------------------------------------------
 
-(defvar my/tab-dir-store-file
-  (expand-file-name "tab-dirs.eld"
-                    (or (bound-and-true-p no-littering-var-directory)
-                        user-emacs-directory))
+(defun my/tab-dir--var-file (name)
+  "保存用ファイル NAME の絶対パスを返す (no-littering があれば var/ 配下)。"
+  (expand-file-name name (or (bound-and-true-p no-littering-var-directory)
+                             user-emacs-directory)))
+
+(defun my/tab-dir--read-file (file)
+  "FILE に保存した Lisp データを読む。無ければ nil。"
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (read (current-buffer)))))
+
+(defun my/tab-dir--write-file (file data)
+  "DATA を FILE へ書き出す。"
+  (with-temp-file file
+    (prin1 data (current-buffer))))
+
+(defvar my/tab-dir-store-file (my/tab-dir--var-file "tab-dirs.eld")
   "タブ別ディレクトリ設定の保存先ファイル。")
 
 (defvar my/tab-dir--table 'unloaded
@@ -51,17 +68,12 @@
 (defun my/tab-dir--load ()
   "ストアファイルを (初回のみ) 読み込み、テーブルを返す。"
   (when (eq my/tab-dir--table 'unloaded)
-    (setq my/tab-dir--table
-          (when (file-exists-p my/tab-dir-store-file)
-            (with-temp-buffer
-              (insert-file-contents my/tab-dir-store-file)
-              (read (current-buffer))))))
+    (setq my/tab-dir--table (my/tab-dir--read-file my/tab-dir-store-file)))
   my/tab-dir--table)
 
 (defun my/tab-dir--save ()
   "テーブルをストアファイルへ書き出す。"
-  (with-temp-file my/tab-dir-store-file
-    (prin1 my/tab-dir--table (current-buffer))))
+  (my/tab-dir--write-file my/tab-dir-store-file my/tab-dir--table))
 
 (defun my/tab-dir--get (tab-name)
   "TAB-NAME の設定 plist を返す。無ければ nil。"
@@ -123,11 +135,7 @@
 (defun my/tab-dir-add-dir (label dir)
   "現タブに個別ディレクトリ DIR を LABEL で登録する (散在dir用)。
 ラベルは空 RET でディレクトリ名 (basename) を自動採用する。"
-  (interactive
-   (let* ((dir (read-directory-name "Directory: "))
-          (base (file-name-nondirectory (directory-file-name dir)))
-          (label (read-string (format "Label (default %s): " base) nil nil base)))
-     (list label dir)))
+  (interactive (my/tab-dir--read-label-and-dir))
   (let* ((name (my/tab-dir--current-name))
          (data (my/tab-dir--get name))
          (dirs (copy-alist (plist-get data :directories))))
@@ -147,41 +155,156 @@ LABEL 省略時はディレクトリ名を既定値にして確認入力する�
                                  nil nil base))))
     (my/tab-dir-add-dir label dir)))
 
+(defconst my/tab-dir--root-label "[root]"
+  "`my/tab-dir-remove' の候補でプロセスルートを表すラベルの接頭辞。")
+
 (defun my/tab-dir-remove (label)
-  "現タブの個別登録ディレクトリを LABEL で削除する。"
+  "現タブの登録ディレクトリを LABEL で削除する。
+個別登録 (pa / pc) に加えて、pr で決めたプロセスルートも選べる。ルートは
+「[root] パス」の形で候補に出る。ルートを消すとテンプレートから導出していた
+work / release などもまとめて候補から消える (2026-11-08)。"
   (interactive
-   (list (let* ((name (my/tab-dir--current-name))
-                (dirs (plist-get (my/tab-dir--get name) :directories)))
-           (unless dirs (user-error "このタブには個別登録ディレクトリがありません"))
-           (completing-read "Remove label: " (mapcar #'car dirs) nil t))))
+   (list (let* ((data (my/tab-dir--get (my/tab-dir--current-name)))
+                (root (plist-get data :process-root))
+                (cands (append (mapcar #'car (plist-get data :directories))
+                               (when root
+                                 (list (format "%s %s" my/tab-dir--root-label
+                                               (abbreviate-file-name root)))))))
+           (unless cands (user-error "このタブには登録ディレクトリがありません"))
+           (completing-read "Remove: " cands nil t))))
   (let* ((name (my/tab-dir--current-name))
-         (data (my/tab-dir--get name))
-         (dirs (assoc-delete-all label (copy-alist (plist-get data :directories)))))
-    (my/tab-dir--put name (plist-put (copy-sequence (or data '()))
-                                     :directories dirs))
-    (message "Tab '%s' - dir [%s]" name label)))
+         (data (copy-sequence (or (my/tab-dir--get name) '()))))
+    (if (string-prefix-p my/tab-dir--root-label label)
+        (my/tab-dir--put name (plist-put data :process-root nil))
+      (my/tab-dir--put name
+                       (plist-put data :directories
+                                  (assoc-delete-all
+                                   label (copy-alist (plist-get data :directories))))))
+    (message "Tab '%s' - %s" name label)))
+
+;; ---------------------------------------------------------------------------
+;; グローバル起点 (どのタブからでも使うディレクトリ。ドキュメント・KB など)
+;; ---------------------------------------------------------------------------
+;; タブ用 (pa / pc) と同じ操作で登録し、機種ごとの別ファイルに保存する
+;; (2026-11-09)。会社と自宅で中身が違うので var/ 側 (git 管理外) に置く。
+
+(defvar my/global-dir-store-file (my/tab-dir--var-file "global-dirs.eld")
+  "hydra で登録したグローバル起点の保存先ファイル。中身は (ラベル . パス) の alist。")
+
+(defvar my/global-dir--table 'unloaded
+  "グローバル起点のキャッシュ。`unloaded' は未読込を表す。")
+
+(defun my/global-dir--load ()
+  "グローバル起点のストアを (初回のみ) 読み込んで返す。"
+  (when (eq my/global-dir--table 'unloaded)
+    (setq my/global-dir--table (my/tab-dir--read-file my/global-dir-store-file)))
+  my/global-dir--table)
+
+(defun my/global-dir--put (alist)
+  "グローバル起点のストアを ALIST に置き換えて即保存する。"
+  (setq my/global-dir--table alist)
+  (my/tab-dir--write-file my/global-dir-store-file alist))
+
+(defun my/global-dirs-all ()
+  "グローバル起点の実効 (ラベル . パス) alist を返す。
+hydra で登録した分を先に、`my/global-dirs' (コードで書く分) を後ろに並べる。
+ラベルが重なったら登録した分を採る。実在確認はしない。リモートのパスを
+登録したとき、一覧を出すたびに TRAMP の接続が走るのを避けるため。"
+  (let ((stored (mapcar (lambda (e) (cons (car e) (my/tab-dir--norm-dir (cdr e))))
+                        (my/global-dir--load)))
+        (coded (mapcar (lambda (e) (cons (car e) (my/tab-dir--norm-dir (cdr e))))
+                       my/global-dirs)))
+    (append stored (seq-remove (lambda (c) (assoc (car c) stored)) coded))))
+
+(defun my/tab-dir--read-label-and-dir (&optional dir)
+  "登録用に (LABEL DIR) を読む。DIR を渡すとディレクトリは聞かない。
+ラベルは空 RET でディレクトリ名 (basename) を使う。"
+  (let* ((dir (or dir (read-directory-name "Directory: ")))
+         (base (file-name-nondirectory (directory-file-name dir)))
+         (label (read-string (format "Label (default %s): " base) nil nil base)))
+    (list label dir)))
+
+(defun my/global-dir-add (label dir)
+  "DIR をグローバル起点として LABEL で登録する。"
+  (interactive (my/tab-dir--read-label-and-dir))
+  (let ((alist (copy-alist (my/global-dir--load))))
+    (setf (alist-get label alist nil nil #'equal) (expand-file-name dir))
+    (my/global-dir--put alist)
+    (message "Global + dir [%s] %s" label dir)))
+
+(defun my/global-dir-add-current (label dir)
+  "今の `default-directory' をグローバル起点として登録する。"
+  (interactive (my/tab-dir--read-label-and-dir default-directory))
+  (my/global-dir-add label dir))
+
+(defun my/global-dir-remove (label)
+  "hydra で登録したグローバル起点を LABEL で削除する。
+`my/global-dirs' (コードで書いた分) はここでは消せないので候補に出さない。"
+  (interactive
+   (let ((labels (mapcar #'car (my/global-dir--load))))
+     (unless labels (user-error "登録したグローバル起点がありません (hydra ga/gc で登録)"))
+     (list (completing-read "Remove global: " labels nil t))))
+  (my/global-dir--put (assoc-delete-all label (copy-alist (my/global-dir--load))))
+  (message "Global - dir [%s]" label))
 
 ;; ---------------------------------------------------------------------------
 ;; ラベルで選ぶ専用ジャンプ (consult-dir は category=file 固定でラベルを出せないため)
 ;; ---------------------------------------------------------------------------
 
-(defun my/tab-dir-jump ()
-  "現タブ + `my/global-dirs' の登録ディレクトリをラベルで選び find-file する。
-候補はラベル表示、注釈に実パスを出す。タブ側を優先 (ラベル衝突時はタブ採用)。"
+(defvar my/tab-dir-jump-include-global t
+  "非 nil なら C-f f (`my/tab-dir-jump') の候補にグローバル起点も出す。
+hydra の pg で切り替える。どちらが使いやすいか試している段階 (2026-11-09)。
+グローバル起点だけから選ぶのは gj。")
+
+(defun my/tab-dir-toggle-jump-global ()
+  "C-f f にグローバル起点を出すかどうかを切り替える。"
   (interactive)
-  (let* ((tab (my/tab-dirs))
-         (glob (mapcar (lambda (e) (cons (car e) (my/tab-dir--norm-dir (cdr e))))
-                       my/global-dirs))
-         (all (append tab (seq-remove (lambda (g) (assoc (car g) tab)) glob))))
+  (setq my/tab-dir-jump-include-global (not my/tab-dir-jump-include-global))
+  (message "C-f f にグローバル起点を%s" (if my/tab-dir-jump-include-global "出す" "出さない")))
+
+(defun my/tab-dir--jump-read (prompt groups)
+  "GROUPS = ((見出し . ((ラベル . パス) ...)) ...) からラベルで 1 つ選び、パスを返す。
+見出しごとにまとめて表示し、注釈に実パスを出す。ラベルが重なったら
+先の見出しの方を採る (タブ優先)。"
+  (let ((all '()))
+    (dolist (g groups)
+      (dolist (e (cdr g))
+        (unless (assoc (car e) all)
+          (push (list (car e) (cdr e) (car g)) all))))
+    (setq all (nreverse all))
     (unless all
-      (user-error "登録ディレクトリがありません (hydra pr/pa/pc で登録)"))
+      (user-error "登録ディレクトリがありません (タブ用は pr/pa/pc、グローバルは ga/gc)"))
     (let* ((annotate (lambda (s)
-                       (let ((p (cdr (assoc s all))))
-                         (when p
-                           (concat "  " (propertize p 'face 'completions-annotations))))))
-           (completion-extra-properties (list :annotation-function annotate))
-           (choice (completing-read "Jump to dir: " (mapcar #'car all) nil t)))
-      (my/find-file-in-dir (cdr (assoc choice all))))))
+                       (when-let* ((p (nth 1 (assoc s all))))
+                         (concat "  " (propertize p 'face 'completions-annotations)))))
+           (group (lambda (s transform)
+                    (if transform s (nth 2 (assoc s all)))))
+           (table (lambda (str pred action)
+                    (if (eq action 'metadata)
+                        `(metadata (annotation-function . ,annotate)
+                                   (group-function . ,group)
+                                   (display-sort-function . ,#'identity))
+                      (complete-with-action action (mapcar #'car all) str pred))))
+           (choice (completing-read prompt table nil t)))
+      (nth 1 (assoc choice all)))))
+
+(defun my/tab-dir-jump ()
+  "現タブの登録ディレクトリをラベルで選び、そこから find-file を始める。
+`my/tab-dir-jump-include-global' が非 nil ならグローバル起点も後ろに出す。"
+  (interactive)
+  (my/find-file-in-dir
+   (my/tab-dir--jump-read
+    "Jump to dir: "
+    (append (list (cons (format "タブ: %s" (my/tab-dir--current-name)) (my/tab-dirs)))
+            (when my/tab-dir-jump-include-global
+              (list (cons "グローバル" (my/global-dirs-all))))))))
+
+(defun my/global-dir-jump ()
+  "グローバル起点だけからラベルで選び、そこから find-file を始める。"
+  (interactive)
+  (my/find-file-in-dir
+   (my/tab-dir--jump-read "Jump to global dir: "
+                          (list (cons "グローバル" (my/global-dirs-all))))))
 
 ;; ---------------------------------------------------------------------------
 ;; consult-dir ソース (タブ優先 → グローバル)
@@ -201,14 +324,9 @@ LABEL 省略時はディレクトリ名を既定値にして確認入力する�
     :narrow   ?g
     :category file
     :face     consult-file
-    :items    ,(lambda ()
-                 (mapcar (lambda (e) (my/tab-dir--norm-dir (cdr e))) my/global-dirs))
-    :annotate ,(lambda (path)
-                 (car (rassoc path
-                              (mapcar (lambda (e)
-                                        (cons (car e) (my/tab-dir--norm-dir (cdr e))))
-                                      my/global-dirs)))))
-  "`my/global-dirs' を返す consult-dir ソース。")
+    :items    ,(lambda () (mapcar #'cdr (my/global-dirs-all)))
+    :annotate ,(lambda (path) (car (rassoc path (my/global-dirs-all)))))
+  "グローバル起点 (`my/global-dirs-all') を返す consult-dir ソース。")
 
 (with-eval-after-load 'consult-dir
   ;; add-to-list は先頭に追加するので、global → tab の順で入れるとタブが最優先になる

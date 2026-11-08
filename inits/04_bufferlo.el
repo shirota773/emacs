@@ -99,14 +99,15 @@
 ^buffer & tab (bufferlo)^
 [_h_]: prev-tab [_n_]: new-tab   [_L_]: move-tab-left  |
 [_l_]: next-tab [_k_]: close-tab [_H_]: move-tab-right |
-[_j_]: select-tab
+[_j_]: select-tab [_f_]: jump-dir (起点へ)
 -----------------------------------------------------------------------------
-[_f_]:  switch-buffer      [_r_]: remove-buffer-current  | [_C-K_]: close-tab&kill-buffers
+               [_r_]: remove-buffer-current  | [_C-K_]: close-tab&kill-buffers
 [_C-f_]:find-buffer&tab    [_R_]: remove-buffer-selected | [_i_]:   isolate-project
 [_s_]:  save-tab-bookmark  [_C-s_]: load-tab-bookmark    | [_d_]:   delete-bookmark
 [_S_]:  save-all-active    [_B_]: local-ibuffer          |
 -----------------------------------------------------------------------------
-[_pr_]: set-proc-root  [_pa_]: add-dir  [_pc_]: add-current  [_pD_]: remove-dir  [_pj_]: jump-dir
+[_pr_]: set-proc-root  [_pa_]: add-dir  [_pc_]: add-current  [_pD_]: remove-dir
+[_ga_]: add-global     [_gc_]: add-current-global  [_gD_]: remove-global  [_gj_]: jump-global  [_pg_]: f に global 表示 (切替)
 [_bm_]: bookmark-set   [_bj_]: bookmark-jump(tab)  [_bl_]: bookmark-jump(layout)
 layout = タブ bookmark の別名保存 (命名: タブ名/レイアウト名)
 
@@ -118,7 +119,6 @@ layout = タブ bookmark の別名保存 (命名: タブ名/レイアウト名)
           ("n" my/tab-bar-new-tab-with-name)
           ("k" tab-bar-close-tab)
           ("j" tab-bar-select-tab-by-name)
-          ("f" bufferlo-switch-to-buffer)
           ("C-f" bufferlo-find-buffer-switch)
           ("r" my/bufferlo-remove-current-buffer)
           ("R" bufferlo-remove)
@@ -133,7 +133,16 @@ layout = タブ bookmark の別名保存 (命名: タブ名/レイアウト名)
           ("pa" my/tab-dir-add-dir)
           ("pc" my/tab-dir-add-current)
           ("pD" my/tab-dir-remove)
-          ("pj" my/tab-dir-jump)
+          ;; 起点へのジャンプは閲覧運用の主入口なので C-f f に置く (2026-11-09)。
+          ;; 以前は pj。f にあったバッファ切替 (bufferlo-switch-to-buffer) は
+          ;; C-r (タブのバッファ / recentf の切替) と重複していたので外した。
+          ("f" my/tab-dir-jump)
+          ;; グローバル起点 (どのタブからでも使う。ドキュメント・KB など)
+          ("ga" my/global-dir-add)
+          ("gc" my/global-dir-add-current)
+          ("gD" my/global-dir-remove)
+          ("gj" my/global-dir-jump)
+          ("pg" my/tab-dir-toggle-jump-global)
           ("bm" bookmark-set)
           ("bj" my/bookmark-jump-local)
           ("bl" my/bookmark-jump-layout)

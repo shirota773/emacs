@@ -184,7 +184,15 @@
   :ensure t
   :blackout t
   :config
-  (which-key-mode 1))
+  ;; hydra の複数打鍵のヘッド (C-f の pr / pD など) は "hydra-buffer-primary/my/..."
+  ;; という名前のコマンドになり、which-key の説明欄 (27 桁) では肝心の後半が
+  ;; 切れて読めない。先頭の "hydra-名前/" と、抜けるヘッドに付く末尾の
+  ;; "-and-exit" を落として本体のコマンド名だけ出す (2026-11-09)。
+  ;; leaf の :config は即時実行なので、変数に触るのは which-key-mode (autoload) で
+  ;; 本体を読み込んだ後にする。先に触ると void-variable で which-key-mode ごと落ちる。
+  (which-key-mode 1)
+  (add-to-list 'which-key-replacement-alist
+               '((nil . "\\`hydra-[^/]+/\\(.*?\\)\\(?:-and-exit\\)?\\'") . (nil . "\\1"))))
 
 ;; helpful: 組み込みの describe-* を置き換える help バッファ。
 ;; ソース・引数・キーバインド・呼び出し元・値の由来を 1 画面にまとめる。

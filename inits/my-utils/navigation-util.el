@@ -8,8 +8,6 @@
 
 ;;; Code:
 
-;; consult の内部関数を使う。autoload が無いのでバイトコンパイル用に宣言する。
-(declare-function consult--read "consult")
 
 (defvar my/c-r-state 'recentf "State of C-r toggle: 'recentf or 'local.")
 
@@ -19,10 +17,16 @@ minibuffer 内から別の補完 UI へ開き直すため、exit 後の次のイ
 ループまで実行を遅らせる。
 以前は 0.05 秒待っていたが、その待ち時間に届いたキー入力が
 `minibufferp' で「minibuffer の外」と誤判定され、C-r 連打で開く UI が
-安定しない原因になっていた (2026-07-31 に 0 へ短縮)。"
+安定しない原因になっていた (2026-07-31 に 0 へ短縮)。
+
+minibuffer は「確定」ではなく「取り消し」で閉じる (2026-11-08)。以前は
+入力を消してから `exit-minibuffer' で確定していたため、呼び出し元のコマンドが
+空の入力を受け取って動いてしまっていた。find-file 中の M-j / C-r / C-t では
+空入力 = 今のディレクトリなので、切り替え先の UI が出る前に裏で dired が
+開いていた。取り消しなら呼び出し元は quit で終わり何もしない
+(embark や consult-dir が別の UI へ移るときと同じ作法)。"
   (run-at-time 0 nil (lambda () (apply func args)))
-  (delete-minibuffer-contents)
-  (ignore-errors (exit-minibuffer)))
+  (abort-recursive-edit))
 
 (defun my/find-file-in-dir (dir)
   "Start interactive `find-file` with default directory set to DIR."
@@ -118,18 +122,41 @@ TRUNCATED が非 nil なら `my/recursive-file-max' を超えたということ
             (cons nil t)
           (cons cands nil))))))
 
+(defconst my/recursive-file-self "."
+  "一括候補の先頭に置く「起点ディレクトリそのもの」の候補。
+普通の find-file で 1 行目 (プロンプト行) を選ぶと今のディレクトリが開くのと
+同じことを、一括候補でもできるようにする (2026-11-08)。
+\"./\" ではなく \".\" にしているのは、vertico が file カテゴリの候補を
+`completion-pcm--filename-try-filter' に通し、そこで \"./\" と \"../\" が
+黙って取り除かれるため (vertico.el の vertico--recompute)。")
+
+(defun my/recursive-file--sort (cands)
+  "CANDS を通常どおり並べたうえで、起点そのもの (.) を必ず先頭に置く。
+vertico の既定の並び (履歴 → 長さ → 名前) のままだと、履歴にある候補が
+. より前に来てしまう。この関数はミニバッファの中で呼ばれるので、
+`vertico-sort-function' の履歴参照もそのまま効く。"
+  (let* ((rest (remove my/recursive-file-self cands))
+         (sort-fn (bound-and-true-p vertico-sort-function))
+         (sorted (if sort-fn (funcall sort-fn rest) rest)))
+    (if (member my/recursive-file-self cands)
+        (cons my/recursive-file-self sorted)
+      sorted)))
+
 (defun my/recursive-file--read (prompt cands &optional initial)
   "PROMPT で CANDS から 1 つ選ぶ。INITIAL は初期入力。
-consult--read は内部関数で autoload されないため、ここで consult を
-require してから使う。これが無いと consult 未ロードのまま M-j を押したとき
-void-function consult--read で落ちる。"
-  (require 'consult)
-  (consult--read cands
-                 :prompt prompt
-                 :category 'file
-                 :require-match t
-                 :initial initial
-                 :history 'file-name-history))
+候補の先頭に起点そのもの (`my/recursive-file-self') を足す。選ぶと
+呼び出し側の `expand-file-name' でディレクトリになり、dired が開く。
+
+以前は consult--read を使っていたが、並び順を差し替える口が無いので
+completing-read にメタデータ付きの補完表を渡す形にした。category を file に
+するのは同じなので、marginalia の属性表示や絞り込みスタイルは変わらない。"
+  (let* ((all (cons my/recursive-file-self cands))
+         (table (lambda (str pred action)
+                  (if (eq action 'metadata)
+                      `(metadata (category . file)
+                                 (display-sort-function . ,#'my/recursive-file--sort))
+                    (complete-with-action action all str pred)))))
+    (completing-read prompt table nil t initial 'file-name-history)))
 
 (defun my/recursive-file--descend (dir initial)
   "DIR 直下のディレクトリを 1 つ選ばせ、その下で一括候補をやり直す。
@@ -150,7 +177,11 @@ void-function consult--read で落ちる。"
                       (format "Descend under %s (over %d entries): "
                               (abbreviate-file-name dir) my/recursive-file-max)
                       subdirs)))
-        (my/find-file-recursive (expand-file-name choice dir) initial)))))
+        ;; . (起点そのもの) を選んだら降りずにそこを開く。降りると同じ
+        ;; ディレクトリで超過判定をやり直すだけで、この選択に戻ってくる
+        (if (equal choice my/recursive-file-self)
+            (find-file dir)
+          (my/find-file-recursive (expand-file-name choice dir) initial))))))
 
 (defun my/find-file-recursive (&optional dir initial)
   "DIR 以下のファイルとディレクトリを一括で候補にして開く。
@@ -172,7 +203,7 @@ INITIAL は初期入力。候補は DIR からの相対パスなので、パス�
          ((null cands)
           (user-error "No files under %s" (abbreviate-file-name dir)))
          (t
-          ;; default-directory を起点に束縛してから consult--read を呼ぶ。
+          ;; default-directory を起点に束縛してから候補を読む。
           ;; 候補が相対パスなので、選択後の展開がこれで揃う。
           ;;
           ;; プレビューは付けない。候補にディレクトリが混ざる以上、カーソルが
@@ -207,7 +238,11 @@ INITIAL は初期入力。候補は DIR からの相対パスなので、パス�
   (if (not (minibufferp))
       (progn (setq my/c-r-state 'local) (call-interactively 'bufferlo-switch-to-buffer))
     (setq my/c-r-state (if (eq my/c-r-state 'recentf) 'local 'recentf))
+    ;; call-interactively で呼ぶ。bufferlo-switch-to-buffer は引数 BUFFER が必須で、
+    ;; 素の funcall だとタイマーの中で wrong-number-of-arguments になり、
+    ;; ミニバッファから local 側へ切り替えても何も出なかった (2026-11-08)。
     (my/minibuffer-exit-run
+     #'call-interactively
      (if (eq my/c-r-state 'recentf) (if (fboundp 'consult-recentf) #'consult-recentf #'consult-buffer)
        #'bufferlo-switch-to-buffer))))
 

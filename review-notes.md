@@ -25,7 +25,7 @@
 | 不満 | 原因 | 対応 | 状態 |
 |---|---|---|---|
 | magit で commit できない | git-commit-mode-hook の廃止パッケージ fci-mode がエラー + server 未起動(Windows のみ start していた) | fci → 組み込み display-fill-column-indicator-mode、server-start を全 OS 化、magit-commit への advice 等の回避策を全撤去 | **解決確認済み** |
-| 別ディレクトリのファイルを開くのが手間 | 仕組み(consult-dir/my/global-dirs/dirvish quick-access)はあるが分散、my/global-dirs は custom-file=null-device のため Customize で永続化不能 | 未対応。bookmark(dired バッファの C-x r m)か my/global-dirs の setq 運用を推奨 | **未対応・検討中** |
+| 別ディレクトリのファイルを開くのが手間 | 仕組み(consult-dir/my/global-dirs/dirvish quick-access)はあるが分散、my/global-dirs は custom-file=null-device のため Customize で永続化不能 | 2026-11-09: 起点を「タブ用」(C-f pr/pa/pc) と「グローバル」(C-f ga/gc、var/global-dirs.eld に保存) の 2 本に整理。どちらも C-f f / gj と C-x C-d から選ぶ。詳細は §7 | **試用中** |
 | 新規バッファの window 挙動 | display-buffer-alist がほぼ未設定 | popper + 基本ルールを 30_test-new.el に追加 | 試用中 |
 | TRAMP が遅い/不安定 | 設定ゼロ。recentf の kill-emacs cleanup がリモート stat でハング | チューニング一式、recentf cleanup 廃止。2026-07-28 に 32_tramp.el へ分離 | 定着 |
 | emacs から git が見えない | status ヘッダー削除・magit-git-debug 等 | 撤去 + diff-hl 追加 | 試用中 |
@@ -222,6 +222,39 @@
     `p` `n` で旧リビジョンの blob を遡る / `t` 定義の変遷。dired でも効く。
     これがあるので **git-timemachine は入れない** (blob 操作で足りる)
 
+- 移動系のキーをどのモードでも同じ動作にした (2026-11-08)。**移動系のグローバルキーを
+  足すときは `94_keybinds.el` 末尾の `dolist` に加える**。素の `bind-key*` にはしない。
+  view-mode で `C-j` が 1 行スクロールになるなど、読むだけのバッファほどキーが
+  モード側に奪われていた (実測した上書きは同ファイルのコメント参照)。
+
+  | 対象キー | `C-j` `C-f` `C-r` `C-;` `M-w` `M-←/→/↑/↓` |
+  |---|---|
+  | 置き場所 | override-global-map (bind-key* と同じ最優先) |
+  | 素通しする場所 | ミニバッファ / 端末 (term・mistty・eat・vterm) |
+
+  - 素通しは menu-item の `:filter` (`my/motion-key-filter`) で実現。ミニバッファの
+    `C-j` = vertico-exit-input、`C-r` = 一覧切替、端末に渡すべきキーを奪わない
+  - 代償: `*scratch*` の `C-j` (eval-print)、org の `C-j` / `M-←` などの構造編集、
+    magit の `M-w` (リビジョンのコピー) が使えない。編集はほぼしないので許容
+  - `C-t` (ターミナル) は移動系ではないので対象外。dired / ibuffer では従来どおり
+    画像表示用のキーが優先される
+- ミニバッファから別の一覧へ移るキーで dired が開くバグを直した (2026-11-08)。
+  find-file 中の `M-j` / `C-r` / `C-t` で、切り替え先が出る前に裏で今の
+  ディレクトリの dired が開いていた。`my/minibuffer-exit-run` が入力を空にして
+  **確定**していたのが原因で、**取り消し** (`abort-recursive-edit`) に変えた。
+  あわせて `C-r` でバッファ一覧側へ切り替えると何も出なかったバグ
+  (`bufferlo-switch-to-buffer` を引数なしで呼んでいた) も直した。
+  切り替えの瞬間にエコー領域へ "Quit" が出るのは取り消しの副作用で、正常。
+- `M-j` の一括候補の先頭に `.` (起点そのもの) を置いた (2026-11-08)。普通の
+  find-file で 1 行目を選ぶとそのディレクトリが開くのと同じ操作ができる。
+  `./` にしないのは vertico が file カテゴリの候補から `./` `../` を取り除くため。
+- `C-f` → `pD` でプロセスルート (`pr` で設定) も消せるようにした (2026-11-08)。
+  候補に `[root] パス` の形で出る。それまでは個別登録 (`pa` / `pc`) しか消せなかった。
+- find-file 中の `C-x C-j` (fd で配下を検索) は覚えなくてよい (2026-11-08)。
+  3 文字打つまで候補が出ない方式で、`M-j` は巨大なツリーで自動的に 1 段ずつ
+  降りる動きに切り替わるので代わりになる。ミニバッファの外の `C-x C-j` は
+  dired-jump (今のファイルの場所を開く) で別物。
+
 ## 6. 構造変更
 
 - tabspace-util.el (818行) を分割:
@@ -260,6 +293,26 @@
 ## 7. 試用中 — 判定待ち
 
 セクション単位で「定着なら NN_name.el へ昇格 / 不要なら削除」する。
+
+### 起点ディレクトリの 2 本立て (2026-11-09)
+
+閲覧中心の運用 (会社で TRAMP 越しに Claude が作ったものを確認する) で、
+「ワークスペースごとの起点から数階層たどる」ための登録先を 2 本に整理した。
+
+| 種類 | 登録 (C-f の後) | 削除 | 選ぶ | 保存先 |
+|---|---|---|---|---|
+| タブ用 | `pr` ルート / `pa` 個別 / `pc` 今の場所 | `pD` (ルートも可) | `f` (旧 `pj`) | var/tab-dirs.eld (タブ名ごと) |
+| グローバル | `ga` 個別 / `gc` 今の場所 | `gD` | `gj` | var/global-dirs.eld |
+
+- **判定待ち: `f` にグローバルも出すか**。`pg` で切り替えられる (既定は出す、
+  再起動で既定に戻る)。出す場合は「タブ: 名前」「グローバル」の見出しで分かれる。
+  使ってみて決めたら `my/tab-dir-jump-include-global` の既定値を固定し、
+  `pg` を消すかどうかも決める
+- グローバル起点は実在確認をしない。リモートのパスを登録したとき、一覧を出す
+  たびに TRAMP の接続が走るのを避けるため
+- コードで書く `my/global-dirs` (~/.emacs.local-inits 向け) も残してあり、
+  登録した分と合わせて出る (ラベルが重なったら登録した方)
+- `C-x C-d` にも「Tab dirs」「Global dirs」として出る
 
 ### dired のファイラ化は全体が仮仕様 (2026-08-10)
 
