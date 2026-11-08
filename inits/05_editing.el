@@ -156,7 +156,36 @@ puni-slurp
 ;; 3. File & Revert Settings
 ;; =============================================================================
 
+;; 編集より閲覧が主になった運用 (コードは AI が書き、Emacs はビューア兼
+;; ファイラとして使う) に合わせた 3 点 (2026-11-07)。
+
 (global-auto-revert-mode 1)
+
+;; dired も自動更新の対象にする。`dired-auto-revert-buffer' は「dired に
+;; 入り直したとき」にしか効かないため、これが nil だと裏でファイルが増減
+;; しても一覧が古いまま残る。
+;; リモートは除外される: `auto-revert-handler' は非ファイルバッファには
+;; `auto-revert-remote-files' のガードを掛けないが、dired 側の
+;; `dired-buffer-stale-p' が noconfirm 付きの呼び出しでリモートを弾く
+;; (dired.el)。TRAMP 越しの dired が auto-revert-interval ごとに stat され
+;; ることはない。wdired 中も buffer-read-only の条件で除外される。
+(setq global-auto-revert-non-file-buffers t)
+
+;; 長い行のファイルで font-lock が効いて固まるのを防ぐ (組み込み so-long)。
+;; AI が出す巨大 JSON・minified ファイル・1 行が数万字のログを開く機会が
+;; 増えたため。閾値は `so-long-threshold' (既定 10000 桁)。
+;; 既定の `so-long-target-modes' は prog-mode/css/sgml/nxml/fundamental で
+;; text-mode 派生 (markdown-mode / gfm-mode) は対象外。Obsidian の長い散文が
+;; so-long-mode に落ちることはない。
+(leaf so-long
+  :tag "builtin"
+  :global-minor-mode global-so-long-mode)
+
+;; vc のバックエンド探索を Git だけにする。既定は
+;; (RCS CVS SVN SCCS SRC Bzr Git Hg) の 8 個で、ファイルを開くたびに順に
+;; 探している。閲覧用途でファイルを開く回数が多いので無駄が大きい。
+;; SVN/Hg のリポジトリを触るようになったらここへ足す。
+(setq vc-handled-backends '(Git))
 
 (leaf repeat
   :tag "builtin"
