@@ -70,11 +70,13 @@
       '((display-buffer-reuse-window display-buffer-same-window)))
 
 ;; =============================================================================
-;; 4. tree-sitter + eglot (どちらも Emacs 29+ 組み込み)
+;; 4. tree-sitter (Emacs 29+ 組み込み)
 ;; treesit-auto: 対応言語の major-mode を自動で *-ts-mode に読み替え、
 ;; 文法 (grammar) が無ければインストールを提案する。
-;; eglot: LSP クライアント。サーバーは別途インストールが必要:
-;;   python: pip install pyright  /  typescript: npm i -g typescript-language-server
+;;
+;; eglot (LSP) の自動起動は 2026-11-09 に撤去した。編集をほぼしない閲覧運用に
+;; なり、TRAMP 越しでは .py を開くたびにサーバー探しだけで 44 往復していた
+;; (PATH の全ディレクトリ × サーバー候補に test -x)。使うときは M-x eglot。
 ;; =============================================================================
 
 ;; ★ treesit-auto-install を 'prompt にしない (2026-07-27)
@@ -107,20 +109,6 @@
   :config
   (setq treesit-auto-install nil)
   (global-treesit-auto-mode))
-
-(leaf eglot
-  :tag "builtin"
-  :hook ((python-mode-hook
-          python-ts-mode-hook
-          js-mode-hook
-          js-ts-mode-hook
-          typescript-ts-mode-hook) . eglot-ensure)
-  :custom
-  (eglot-autoshutdown . t)              ; 最後のバッファを閉じたらサーバー停止
-  :bind ((:eglot-mode-map
-          ("C-c l r" . eglot-rename)
-          ("C-c l a" . eglot-code-actions)
-          ("C-c l f" . eglot-format))))
 
 ;; =============================================================================
 ;; 5. diff-hl — バッファ左端 (fringe) に git の追加/変更/削除を表示

@@ -15,7 +15,7 @@
 | 1 | exec-path-from-shell | 試用中 (macOS のみ) |
 | 2 | TRAMP チューニング (2-1〜2-6) | **卒業。`32_tramp.el` へ分離 (2026-07-28)** |
 | 3 | popper | 試用中 |
-| 4 | treesit / eglot | eglot 試用中。treesit は Rosetta のため grammar 不可 (下記) |
+| 4 | treesit / eglot | eglot の自動起動は撤去 (2026-11-09、閲覧運用で不要・TRAMP で重い)。treesit は Rosetta のため grammar 不可 (下記) |
 | 5 | diff-hl | 試用中 |
 | 6 | go-translate (gt) | 試用中。byte-compile で警告 5 件が既知 |
 
@@ -87,11 +87,12 @@ x86_64 プロセスからは開けず、arm64 プロセスからは開ける。*
   `M-x my/tramp-branch-refresh` (結果をエコーエリアに報告するので
   切り分けにも使う)。数字が要らなければ `my/tramp-branch-show-stats` を nil に。
 
-  既知の挙動: **更新が走るとき 1 秒程度固まる** (2026-07-27 実測、許容と判断)。
-  バグではなく TRAMP の仕様で、非同期プロセス 1 個ごとに ssh セッションが
-  1 本増え、その確立部分が同期のため。だから定期タイマーは入れていない
-  (詳細は 2-5 節冒頭)。気になるようになったら TRAMP の
-  direct-async-process (接続プロパティ) でシェル初期化を飛ばす手がある
+  2026-11-09: 取得を非同期 (start-file-process) から同期の process-file に
+  変えた。非同期プロセスは 1 本ごとに ssh セッションを張り直していて、開く
+  たびに 1 秒程度固まっていた。今は既存の接続に 1 往復流すだけ (mock 実測
+  0.04 秒)。代わりに git の実行中は Emacs が止まるので、巨大な repo で
+  引っかかるなら `my/tramp-branch-show-stats` を nil に (git status を飛ばす)。
+  **実リモートでは未確認**
 
 未検証で残っているもの:
 

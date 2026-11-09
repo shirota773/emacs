@@ -59,6 +59,14 @@ fd が入っている保証は無く、無いときに何も出ないより find
 ;;   ~ 全体     610,236 件 / fd 10.2 秒 / 実用外
 ;; プロジェクト単位なら一括で十分軽い。破綻するのはホーム全体のような起点だけ。
 ;;
+;; リモート (TRAMP) は 2026-11-09 から同じ一括候補にした。それまでは
+;; consult-find に回していたが、あれは入力が変わるたびにリモートで find を
+;; 非同期プロセスとして起こし直す。TRAMP の非同期プロセスは 1 本ごとに
+;; ssh セッションを新しく張る (mock 実測で 17〜18 往復 + ssh ログイン) ので、
+;; 1 文字打つたびにそれが走っていた。今は起点から
+;; `my/recursive-file-remote-depth' 階層までを process-file で 1 回だけ
+;; 列挙し (既存の接続に流すので 1 往復)、絞り込みは手元でやる。
+;;
 ;; 上限を超えたときは絞り込み検索 (C-x C-j 相当) には落とさない。あちらは
 ;; 「先に文字を打たないと候補が出ない」方式なので、~ のように見当が付かない
 ;; 起点では何を打てばいいのか分からなくなる。代わりに直下のディレクトリだけを
@@ -80,6 +88,49 @@ fd が入っている保証は無く、無いときに何も出ないより find
 隠しファイルは候補に含め、.git 配下と .gitignore 対象は除外する。
 候補数を現実的に保つのが目的なので --no-ignore は付けない。")
 
+;; リモートには fd がある保証が無く .gitignore も効かないので、find で深さを
+;; 区切り、重いことが分かっているディレクトリは丸ごと飛ばす。
+(defvar my/recursive-file-remote-depth 4
+  "リモートで一括候補にする深さ。起点から何階層下まで列挙するか。
+起点から数階層たどれば目的のファイルに着く、という使い方に合わせた値。
+深い所のファイルは、途中のディレクトリを選んで M-j し直せば届く。")
+
+(defvar my/recursive-file-remote-prune
+  '(".git" "node_modules" ".venv" "__pycache__")
+  "リモートの一括列挙で中に入らないディレクトリ名。
+ローカルの fd は .gitignore で同じものを避けているが、find には
+その仕組みが無いので名前で除外する。")
+
+(defun my/recursive-file--remote-command (limit depth)
+  "リモートで走らせる列挙コマンドを返す。
+ファイル、@@ の行、ディレクトリの順に、それぞれ最大 LIMIT 件を
+起点からの相対パス (./ 始まり) で出す。DEPTH は find の -maxdepth。
+-mindepth / -maxdepth は POSIX ではないが GNU と BSD の find の両方にある。"
+  (let ((prune (mapconcat (lambda (name) (concat "-name " (shell-quote-argument name)))
+                          my/recursive-file-remote-prune " -o "))
+        (head (format "head -n %d" limit)))
+    (format (concat "exec 2>/dev/null; "
+                    "find . -mindepth 1 -maxdepth %d \\( %s \\) -prune -o -type f -print | %s; "
+                    "echo @@; "
+                    "find . -mindepth 1 -maxdepth %d \\( %s \\) -prune -o -type d -print | %s")
+            depth prune head depth prune head)))
+
+(defun my/recursive-file--remote-find (dir limit depth)
+  "リモートの DIR 以下を DEPTH 階層まで列挙して (FILES . DIRS) を返す。
+どちらも起点からの相対パスで最大 LIMIT 件。ディレクトリは末尾に / を付ける。
+process-file で 1 回だけ実行するので、往復は 1 回で済む。"
+  (let ((default-directory (file-name-as-directory dir)))
+    (with-temp-buffer
+      (process-file "sh" nil '(t nil) nil "-c"
+                    (my/recursive-file--remote-command limit depth))
+      (let* ((parts (split-string (buffer-string) "^@@\n?" nil))
+             (strip (lambda (block)
+                      (mapcar (lambda (line) (string-remove-prefix "./" line))
+                              (split-string (or block "") "\n" t)))))
+        (cons (funcall strip (nth 0 parts))
+              (mapcar (lambda (d) (concat d "/"))
+                      (funcall strip (nth 1 parts))))))))
+
 (defun my/recursive-file--program ()
   "fd の実行ファイルを返す。無ければ nil。"
   (or (executable-find "fd") (executable-find "fdfind")))
@@ -99,8 +150,10 @@ DEPTH を渡すとその深さまでに限る (1 なら直下だけ)。
 
 (defun my/recursive-file--subdirs (dir)
   "DIR 直下のディレクトリを末尾 / 付きの相対名で返す。"
-  (mapcar (lambda (d) (if (string-suffix-p "/" d) d (concat d "/")))
-          (my/recursive-file--fd dir "d" (1+ my/recursive-file-max) 1)))
+  (if (file-remote-p dir)
+      (cdr (my/recursive-file--remote-find dir (1+ my/recursive-file-max) 1))
+    (mapcar (lambda (d) (if (string-suffix-p "/" d) d (concat d "/")))
+            (my/recursive-file--fd dir "d" (1+ my/recursive-file-max) 1))))
 
 (defun my/recursive-file--collect (dir)
   "DIR 以下の候補を集めて (CANDIDATES . TRUNCATED) を返す。
@@ -110,13 +163,19 @@ TRUNCATED が非 nil なら `my/recursive-file-max' を超えたということ
 自分で付けてくるので、無いときだけ足す。
 
 ファイルだけで上限を超えたらディレクトリは列挙しない。ホーム全体のような
-起点で fd を 2 回走らせずに済み、切り替え判定が 0.5 秒 → 0.2 秒になる。"
+起点で fd を 2 回走らせずに済み、切り替え判定が 0.5 秒 → 0.2 秒になる。
+リモートはファイルとディレクトリを 1 回の find でまとめて取る (往復を増やさない)。"
   (let* ((limit (1+ my/recursive-file-max))
-         (files (my/recursive-file--fd dir "f" limit)))
+         (remote (and (file-remote-p dir)
+                      (my/recursive-file--remote-find
+                       dir limit my/recursive-file-remote-depth)))
+         (files (if remote (car remote) (my/recursive-file--fd dir "f" limit))))
     (if (> (length files) my/recursive-file-max)
         (cons nil t)
-      (let* ((dirs (mapcar (lambda (d) (if (string-suffix-p "/" d) d (concat d "/")))
-                           (my/recursive-file--fd dir "d" limit)))
+      (let* ((dirs (if remote
+                       (cdr remote)
+                     (mapcar (lambda (d) (if (string-suffix-p "/" d) d (concat d "/")))
+                             (my/recursive-file--fd dir "d" limit))))
              (cands (append files dirs)))
         (if (> (length cands) my/recursive-file-max)
             (cons nil t)
@@ -189,12 +248,13 @@ INITIAL は初期入力。候補は DIR からの相対パスなので、パス�
 空白区切りで並べて絞り込める。ディレクトリを選べば dired が開く。
 
 候補が `my/recursive-file-max' を超えたら `my/recursive-file--descend' で
-1 段降りてやり直す。リモート (TRAMP) と fd 不在のときだけ
-`my/consult-jump-file-command' (絞り込み検索) に委譲する。"
+1 段降りてやり直す。リモート (TRAMP) は fd の代わりに find で
+`my/recursive-file-remote-depth' 階層までを 1 回で列挙する。
+ローカルで fd が無いときだけ `my/consult-jump-file-command' (絞り込み検索) に
+委譲する。"
   (interactive)
   (let ((dir (file-name-as-directory (expand-file-name (or dir default-directory)))))
-    (if (or (file-remote-p dir) (not (my/recursive-file--program)))
-        ;; リモートは一括列挙が遅すぎるうえ fd がある保証も無い
+    (if (and (not (file-remote-p dir)) (not (my/recursive-file--program)))
         (my/consult-jump-file-command dir initial)
       (let* ((result (my/recursive-file--collect dir))
              (cands (car result)))

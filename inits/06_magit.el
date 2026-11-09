@@ -23,12 +23,19 @@
          ;; 開いているファイルの diff / log / blame / 旧リビジョン表示。
          ;; 閲覧運用の主入口なので左手ホームポジションの f に置く。
          ("C-c f" . magit-file-dispatch))
-  :custom
-  (magit-diff-refine-hunk . t)          ; hunk 内の単語単位差分を表示
+  :init
   ;; 'recommended にすると magit 側が C-x M-g / C-c M-g を足さなくなる
   ;; (magit.el の magit-maybe-define-global-key-bindings)。上の :bind と
   ;; 同じ 3 つを入れる値なので、二重定義にはならない。
-  (magit-define-global-key-bindings . 'recommended)
+  ;;
+  ;; ★ :custom ではなく setq にしてある (2026-11-09)
+  ;;   :custom (customize-set-variable) はこの変数の定義元を探して
+  ;;   magit 本体を丸ごと読み込む (custom-load-symbol、+80 features)。
+  ;;   起動が 0.23 秒遅くなっていた。defcustom は束縛済みの値を上書きしない
+  ;;   ので、読み込み前の setq で同じ効果になる。
+  (setq magit-define-global-key-bindings 'recommended)
+  :custom
+  (magit-diff-refine-hunk . t)          ; hunk 内の単語単位差分を表示
   :config
   ;; Windows はプロセス起動が遅いので status のセクションを間引く
   (when windows-nt-p

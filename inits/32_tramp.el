@@ -1074,7 +1074,7 @@ C-x C-d は候補全部に対してこれを呼ぶので、file-remote-p のま�
 ;; ブランチ表示が消える。遅さの原因は「開く/保存のたびに vc-git が同期で
 ;; ssh 越しの git を何回も走らせる」ことなので、こうする:
 ;;   - 開いた直後は何もしない (体感ゼロ)
-;;   - アイドルタイマーで git を非同期に 1 回だけ実行
+;;   - アイドルタイマーで git を 1 回だけ実行 (2026-11-09 から同期の process-file)
 ;;   - 結果を vc-mode にただの文字列として入れる (デフォルトのモードラインは
 ;;     (vc-mode vc-mode) を表示するので、vc 本体が動かなくても文字列は出る)
 ;;
@@ -1084,23 +1084,32 @@ C-x C-d は候補全部に対してこれを呼ぶので、file-remote-p のま�
 ;;   +12-3    … このファイルの HEAD からの変更行数 (追加/削除)
 ;;   [4]      … リポジトリ全体の変更ファイル数 (untracked は数えない)
 ;;
-;; ★ なぜ 3 つの値を 1 コマンドにまとめるか (ここが性能の肝)
+;; ★ なぜ非同期 (start-file-process) ではなく同期の process-file か (2026-11-09)
 ;;   TRAMP の start-file-process は「既存の ssh 接続でコマンドを 1 本流す」
-;;   ものではない。tramp-sh-handle-make-process (tramp-sh.el:3065-) は
-;;   process-name/process-buffer を差し替えたうえで接続を開くので、
+;;   ものではない。tramp-sh-handle-make-process は接続を新しく開くので、
 ;;   非同期プロセス 1 個につき ssh セッションが 1 本増え、TRAMP のシェル
-;;   初期化 (プロンプト設定・stty・echo $$ など) が毎回走る。ControlMaster が
-;;   効いていても TCP/認証が省けるだけで、この初期化の往復は省けない。
-;;   しかも接続確立部分は同期で、その間 Emacs は待たされる。
-;;   → プロセスを起こす回数がそのままコストなので、git を 3 回呼ぶとしても
-;;     sh -c で 1 プロセスにまとめる。リモート側の git 実行自体は安い
-;;     (この程度の repo なら 3 コマンド合計で 30ms 程度)。
+;;   初期化 (プロンプト設定・stty・echo $$ など) が毎回走る。接続確立の
+;;   部分は同期で、その間 Emacs は待たされる (実測で約 1 秒固まっていた)。
+;;   ControlMaster が効いても TCP/認証が省けるだけで、Windows の OpenSSH には
+;;   ControlMaster 自体が無い。
+;;   process-file は TRAMP が張ってある接続のシェルにコマンドを流すだけ。
+;;   mock 接続での実測: start-file-process 1 回 = 17〜18 往復 + ssh ログイン、
+;;   process-file 1 回 = 1 往復。待つのはその 1 往復と git の実行時間だけ。
+;;
+;;   代わりに git の実行中は Emacs が止まる。rev-parse と 1 ファイルの diff は
+;;   一瞬で、重いのは status -uno (追跡ファイル全部の stat)。巨大な repo で
+;;   引っかかるようなら my/tramp-branch-show-stats を nil にして status を
+;;   飛ばす。アイドルまで待ってから走らせるのは、この止まりを操作の手が
+;;   止まっている間に寄せるため。
+;;
+;; ★ なぜ 3 つの値を 1 コマンドにまとめるか
+;;   1 コマンド = 1 往復なので、git を 3 回呼ぶより sh -c で 1 回にまとめる。
+;;   リモート側の git 実行自体は安い (この程度の repo なら合計 30ms 程度)。
 ;;
 ;; ★ なぜ定期更新 (タイマー) をしないか
-;;   上のとおり 1 回の更新が「ssh セッション 1 本 + 同期の待ち」なので、
-;;   数十秒おきに回すと編集中に不定期な引っかかりが出る。しかも TRAMP は
-;;   ホスト単位で処理が直列化されるため、裏の git が走っている間は
-;;   C-x C-f などの操作がその後ろに並ぶ。
+;;   1 回の更新が同期の待ちになるので、数十秒おきに回すと不定期な
+;;   引っかかりが出る。しかも TRAMP はホスト単位で処理が直列化されるため、
+;;   git が走っている間は C-x C-f などの操作がその後ろに並ぶ。
 ;;   数字が変わるのは基本的に自分が保存したときなので、after-save-hook で
 ;;   取り直せば十分かつ正確。他端末で入った変更を反映したいときだけ
 ;;   M-x my/tramp-branch-refresh を手で叩く。
@@ -1116,12 +1125,12 @@ C-x C-d は候補全部に対してこれを呼ぶので、file-remote-p のま�
 
 (defvar my/tramp-branch-idle-delay 1
   "git 情報の取得を始めるまでのアイドル秒数。
-開いた直後/保存直後ではなくアイドルまで待つのは、TRAMP のプロセス起動が
-接続確立の間だけ同期で止まるため。操作の手が止まってから走らせる。")
+開いた直後/保存直後ではなくアイドルまで待つのは、取得 (process-file) が
+同期で Emacs を止めるため。操作の手が止まってから走らせる。")
 
 (defcustom my/tramp-branch-show-stats t
   "非 nil なら変更行数とリポジトリの変更ファイル数も表示する。
-nil ならブランチ名だけになる (git の実行回数は変わらない)。"
+nil ならブランチ名だけになり、重い git status も走らせない。"
   :type 'boolean
   :group 'tramp)
 
@@ -1152,7 +1161,7 @@ none (リポジトリ外・git 不在・接続不可) のいずれか。")
 ;; 区切りに @@ の行を挟んで 3 ブロックを 1 回の出力で受け取る。
 ;;
 ;; exec 2>/dev/null はリポジトリ外のときの git のエラー文を混ぜないため
-;; (stderr は start-file-process だと同じバッファに来てしまう)。
+;; (process-file 側でも stderr は捨てているが、二重に止めておく)。
 ;; git diff に HEAD を付けるのは index に上げた分も変更として数えるため。
 ;; git status の -uno は untracked を数えない指定。作業ツリー全体を歩く
 ;; untracked 探索が status の一番重い部分なので、大きい repo では効く。
@@ -1161,8 +1170,8 @@ none (リポジトリ外・git 不在・接続不可) のいずれか。")
 ;;   プロセスに pty が付くと git は「端末に出力している」と判断し、
 ;;   ページャを起動して色も付ける。すると出力に less の制御シーケンスが
 ;;   混ざり ("\e[?1h=" や "\e[K\e[?1l>")、区切りの @@ が行頭に来なくなって
-;;   パースが必ず失敗する。--fetch 側で pty を切って (process-connection-type)
-;;   根本を断ってあるが、リモートの git 設定が pager.diff や
+;;   パースが必ず失敗する。今の取得は process-file (pty を使わない) なので
+;;   根本は断ってあるが、リモートの git 設定が pager.diff や
 ;;   color.ui=always を強制している場合に備えてコマンド側でも殺しておく。
 (defconst my/tramp-branch--command
   (concat "exec 2>/dev/null; "
@@ -1170,6 +1179,13 @@ none (リポジトリ外・git 不在・接続不可) のいずれか。")
           "git --no-pager -c color.ui=false diff HEAD --numstat -- %s; echo @@; "
           "git --no-pager status --porcelain -uno | wc -l")
   "git 情報を 1 度に取るシェルコマンド。%s にファイル名が入る。")
+
+(defconst my/tramp-branch--command-branch-only
+  (concat "exec 2>/dev/null; "
+          "git --no-pager rev-parse --abbrev-ref HEAD; echo @@; echo @@; echo 0")
+  "`my/tramp-branch-show-stats' が nil のときのコマンド。ブランチ名だけ取る。
+出力の形 (@@ で区切った 3 ブロック) は `my/tramp-branch--command' と揃えて
+あるので、パースは共通。%s は使わない。")
 
 (defun my/tramp-branch--parse (output)
   "git の OUTPUT を plist にする。解釈できなければ nil を返す。"
@@ -1209,56 +1225,49 @@ none (リポジトリ外・git 不在・接続不可) のいずれか。")
           (setq my/tramp-branch--mode-line text)
           (force-mode-line-update))))))
 
-(defun my/tramp-branch--sentinel (proc _event)
-  "git の終了を受けてキャッシュとモードラインを更新する。"
-  (when (memq (process-status proc) '(exit signal))
-    (let ((file   (process-get proc 'my/tramp-branch-file))
-          (report (process-get proc 'my/tramp-branch-report))
-          (buf    (process-buffer proc)))
-      (unwind-protect
-          (let* ((output (and (buffer-live-p buf)
-                              (with-current-buffer buf (buffer-string))))
-                 (info (and output (my/tramp-branch--parse output))))
-            (cond (info
-                   (puthash file info my/tramp-branch--cache)
-                   (my/tramp-branch--display file info)
-                   (when report
-                     (message "my/tramp-branch: %s →%s"
-                              file (my/tramp-branch--format info))))
-                  ;; リポジトリ外・git 不在など。再試行はしない
-                  (t (puthash file 'none my/tramp-branch--cache)
-                     (when report
-                       (message "my/tramp-branch: git 失敗 (exit %s): %s"
-                                (process-exit-status proc)
-                                (if output (string-trim output) "(出力なし)"))))))
-        (when (buffer-live-p buf)
-          (kill-buffer buf))))))
+(defun my/tramp-branch--store (file output exit report)
+  "git の OUTPUT (終了コード EXIT) を FILE のキャッシュとモードラインに反映する。
+REPORT が非 nil なら結果をエコーエリアに報告する。"
+  (let ((info (and output (my/tramp-branch--parse output))))
+    (cond (info
+           (puthash file info my/tramp-branch--cache)
+           (my/tramp-branch--display file info)
+           (when report
+             (message "my/tramp-branch: %s →%s"
+                      file (my/tramp-branch--format info))))
+          ;; リポジトリ外・git 不在など。再試行はしない
+          (t (puthash file 'none my/tramp-branch--cache)
+             (when report
+               (message "my/tramp-branch: git 失敗 (exit %s): %s"
+                        exit
+                        (if (and output (not (string-empty-p (string-trim output))))
+                            (string-trim output)
+                          "(出力なし)")))))))
 
 (defun my/tramp-branch--fetch (file &optional report)
-  "FILE の git 情報を非同期に取得する。取得済み/取得中なら何もしない。
-REPORT が非 nil なら結果をエコーエリアに報告する (refresh 用)。"
+  "FILE の git 情報を取得して表示する。取得済み/取得中なら何もしない。
+REPORT が非 nil なら結果をエコーエリアに報告する (refresh 用)。
+取得は process-file で同期に行う。理由は 2-5 節の頭のコメント。"
   (unless (gethash file my/tramp-branch--cache)
     (puthash file 'pending my/tramp-branch--cache)
     (condition-case err
-        (let* ((default-directory (file-name-directory file))
-               ;; pty を付けない。付けると git がページャと色を有効にして
-               ;; 出力に制御シーケンスが混ざる (--command のコメント参照)。
-               ;; TRAMP 側も connection-type が pipe なら CR→LF 変換を
-               ;; 行わない (tramp-sh.el:3099-) ので、解析にはこちらが素直。
-               (process-connection-type nil)
-               (proc (start-file-process
-                      "my/tramp-branch" (generate-new-buffer " *my/tramp-branch*")
-                      "sh" "-c"
-                      (format my/tramp-branch--command
-                              (shell-quote-argument
-                               (file-name-nondirectory file))))))
-          (process-put proc 'my/tramp-branch-file file)
-          (process-put proc 'my/tramp-branch-report report)
-          (set-process-sentinel proc #'my/tramp-branch--sentinel))
-      ;; 接続が切れている等でプロセスを起こせない場合。再試行しない
+        (let ((default-directory (file-name-directory file))
+              (command (if my/tramp-branch-show-stats
+                           (format my/tramp-branch--command
+                                   (shell-quote-argument
+                                    (file-name-nondirectory file)))
+                         my/tramp-branch--command-branch-only)))
+          (with-temp-buffer
+            ;; (t nil) = 標準出力はこのバッファへ、標準エラーは捨てる
+            (let ((exit (process-file "sh" nil '(t nil) nil "-c" command)))
+              (my/tramp-branch--store file (buffer-string) exit report))))
+      ;; 接続が切れている等で実行できない場合。再試行しない
       (error (puthash file 'none my/tramp-branch--cache)
              (when report
-               (message "my/tramp-branch: プロセス起動に失敗: %S" err))))))
+               (message "my/tramp-branch: git を実行できない: %S" err)))
+      ;; C-g で止めたときは pending のまま残さない。次に開いたとき取り直す
+      (quit (remhash file my/tramp-branch--cache)
+            (signal (car err) (cdr err))))))
 
 (defun my/tramp-branch--schedule (file)
   "FILE の git 情報取得をアイドル時に予約する。"
@@ -1273,7 +1282,8 @@ REPORT が非 nil なら結果をエコーエリアに報告する (refresh 用)
              (setq my/tramp-branch--mode-line (my/tramp-branch--format cached)))
             ((null cached)                      ; 未取得 → アイドル時に取得
              (my/tramp-branch--schedule buffer-file-name))
-            ;; pending 中に開いたバッファは sentinel の --display が拾う。
+            ;; pending (取得中) なら、取得を終えた --display が同じファイルの
+            ;; バッファ全部に反映する。
             ;; none は何もしない (再試行は my/tramp-branch-refresh で)
             ))))
 

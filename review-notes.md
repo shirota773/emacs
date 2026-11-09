@@ -67,6 +67,7 @@
 | my/tabspaces-open-project-tree | treemacs 未インストールの死にコード |
 | magit-commit への advice / status ヘッダー間引き / magit-git-debug | commit 問題の対症療法。真因解決により不要。Windows の間引きのみ windows-nt-p 分岐で維持 |
 | swiper (→ 後に復帰) | 上記 §3 参照。**削除しないこと** |
+| eglot の自動起動 (2026-11-09) | 編集をほぼしない閲覧運用になり不要。TRAMP 越しでは .py を開くたびに LSP サーバー探しだけで 44 往復 (.json で 30) していた。eglot 本体は組み込みなので、要るときは M-x eglot |
 | visual-fill-column (2026-08-11 に宣言だけ撤去) | markdown 閲覧モードの幅制限に入れたが**一度も有効化せずに終わった**。variable-pitch のバッファで桁の見積もりを外し、121 桁のウィンドウに 80 桁を指定して本文が 64 桁になる。幅の制限は自前の右マージン (`my/markdown-view--apply-margin`) でやる |
 
 ## 5. キーバインドの決定事項
@@ -254,6 +255,13 @@
   3 文字打つまで候補が出ない方式で、`M-j` は巨大なツリーで自動的に 1 段ずつ
   降りる動きに切り替わるので代わりになる。ミニバッファの外の `C-x C-j` は
   dired-jump (今のファイルの場所を開く) で別物。
+- リモート (TRAMP) でも `M-j` を一括候補にした (2026-11-09)。それまでは
+  絞り込み検索 (consult-find) に回していて、1 文字打つたびにリモートの find が
+  起き直し、そのたびに ssh セッションが新しく張られていた。今は起点から
+  **4 階層まで** (`my/recursive-file-remote-depth`) を 1 回だけ列挙する。
+  それより深いファイルは、途中のディレクトリを選んで `M-j` し直す。
+  `.git` / `node_modules` / `.venv` / `__pycache__` の中は出ない
+  (リモートでは .gitignore が効かないので名前で除外)
 
 ## 6. 構造変更
 

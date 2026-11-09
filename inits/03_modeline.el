@@ -62,8 +62,8 @@
   ;; エンコーディングは常時表示する。utf-8/CRLF まわりで Windows と
   ;; やり取りする設定 (win.el) を入れている以上、ここは見えていた方がよい
   (doom-modeline-buffer-encoding . t)
-  ;; LSP・checker の状態は eglot が入っているので出す
-  (doom-modeline-lsp . t)
+  ;; LSP は使わない (eglot の自動起動は 2026-11-09 に撤去、30_test-new.el 4 節)
+  (doom-modeline-lsp . nil)
   ;; リモート作業が多いので host 表示は残す
   (doom-modeline-display-misc-in-all-mode-lines . t)
   :config
