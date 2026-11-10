@@ -55,6 +55,23 @@ x86_64 プロセスからは開けず、arm64 プロセスからは開ける。*
 節番号は `2-1` 〜 `2-6` のまま (この README と `review-notes.md` の参照先を
 生かすため)。内訳はファイル冒頭の Commentary を参照。
 
+### Windows で scp のファイル転送を今の接続に流す — 2026-11-11
+
+Windows の TRAMP で「開く・保存するたびに待たされる」の主因と見て 2-7 節を追加した。
+scp メソッドは 10KB を超えるファイルを別の scp プロセスで送り、Windows の OpenSSH
+には ControlMaster が無いので 1 ファイルごとに ssh のログインからやり直していた。
+Windows だけ `tramp-copy-size-limit` を 4MB にし、それ以下はインライン転送にする。
+
+- 確認済み (mac / 疑似リモート = mock メソッドに 1 往復 30ms とログイン 1 秒を足したもの):
+  scp 相当のメソッドで 500KB を開くと、既定では scp を起動し、4MB では新しい
+  プロセスを起動せず 0.59 秒。インライン転送は 2MB 0.46 秒 / 10MB 1.05 秒
+- 同じ計測で往復回数も見た。ファイルを開く 5〜16 回、dired の移動 7 回、
+  カーソル移動とアイドル中は 0 回、接続し直し 61 回 + ログイン、magit status 89 回
+- **Windows 実機では未確認**。確認すること: 10KB を超えるファイルを開く・保存する
+  ときの待ちが消えたか。切れた接続で固まるなら Windows の `~/.ssh/config` に
+  `ServerAliveInterval 30` / `ServerAliveCountMax 3` を足す (2-7 節のコメント)
+- 戻すとき: 2-7 節の `when` ブロックを消す
+
 ### TRAMP を ELPA 版 (2.8) に上げた — 2026-11-09
 
 `01_builtin-upgrade.el` が起動時に 2.8 未満なら GNU ELPA 版を入れる

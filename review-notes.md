@@ -28,6 +28,7 @@
 | 別ディレクトリのファイルを開くのが手間 | 仕組み(consult-dir/my/global-dirs/dirvish quick-access)はあるが分散、my/global-dirs は custom-file=null-device のため Customize で永続化不能 | 2026-11-09: 起点を「タブ用」(C-f pr/pa/pc) と「グローバル」(C-f ga/gc、var/global-dirs.eld に保存) の 2 本に整理。どちらも C-f f / gj と C-x C-d から選ぶ。詳細は §7 | **試用中** |
 | 新規バッファの window 挙動 | display-buffer-alist がほぼ未設定 | popper + 基本ルールを 30_test-new.el に追加 | 試用中 |
 | TRAMP が遅い/不安定 | 設定ゼロ。recentf の kill-emacs cleanup がリモート stat でハング | チューニング一式、recentf cleanup 廃止。2026-07-28 に 32_tramp.el へ分離 | 定着 |
+| TRAMP で開く・保存するたびに待たされる (Windows) | `tramp-default-method` が "scp" で、補完候補も `/scp:host:`。scp メソッドは 10KB (`tramp-copy-size-limit`) を超えるファイルを張ってある接続とは別の scp で送り、Windows の OpenSSH は ControlMaster が無いので **1 ファイルごとに ssh のログインからやり直していた**。往復回数そのものは疑似リモートで実測して少なかった (ファイルを開く 5〜16、dired 7、カーソル移動 0) | 2026-11-11: Windows だけ上限を 4MB に上げ、それ以下はインライン転送 (32_tramp.el 2-7 節)。あわせて C-x C-j 直後の j が repeat-mode で dired-jump (親へ移動) になっていたのを外した。接続が黙って切れて固まる対策 (ServerAliveInterval) は Windows の ~/.ssh/config 側 | **Windows 実機未確認** |
 | emacs から git が見えない | status ヘッダー削除・magit-git-debug 等 | 撤去 + diff-hl 追加 | 試用中 |
 | macOS でタブバーが表示されない | `tab-bar-auto-width-min/max` に Emacs 30 形式 `((N) M)` を設定していた。29 は `(N M)` 形式のため redisplay 中の幅計算が黙って型エラー → tab-bar-lines が 0 に戻され常に非表示 (emacs-mac は無実、-Q 最小再現で特定) | バージョン分岐の setq に修正 (04_tabspace.el → 現 04_bufferlo.el)。**leaf の :custom は値の式を評価できない**(シンボルを変数として nil 設定する)ので式が要る値は :init で setq する | **解決 (2026-07-24)** |
 
@@ -573,6 +574,7 @@ ivy / swiper と visual-regexp は使用中なので残す。
       リスク(現状リモートのみ無効化)
 - [ ] 05_editing.el の isearch-mode-map C-t (visual-regexp-steroids) は C-s が
       swiper のため実質死にバインド
+- [ ] magit をリモートで開くと status 1 回で 89 往復 (疑似リモート実測、2026-11-11)。うち 23 往復は `magit--git-insert` が git 1 回ごとにリモートに stderr 用の一時ファイルを作って消す分。Windows はタグ・未 push・未 pull の節を既に間引いている (06_magit.el)。リモートで magit を常用するなら、リモートのときだけ一時ファイルを使わない advice を検討
 - [ ] インストール済みだが古いもの: minor-mode-hack, viewer 等は動いているので現状維持
 
 ## 9. 検証方法(この修正で使ったコマンド)
