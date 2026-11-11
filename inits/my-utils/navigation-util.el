@@ -78,6 +78,8 @@ fd が入っている保証は無く、無いときに何も出ないより find
 ;;           プロセス側で絞るので、起点がどれだけ大きくても候補を保持しない。
 ;;           代わりに consult-async-min-input (既定 3) 文字打つまで候補は出ない。
 
+(defvar marginalia-annotators) ; marginalia.el。let で一時的に差し替える
+
 (defvar my/recursive-file-max 20000
   "一括候補にする上限件数。超えたら直下のディレクトリを選んで 1 段降りる。
 18,054 件で 1 キーあたり 16-30ms だったので、2 万件までは体感が保てる。")
@@ -214,7 +216,17 @@ completing-read にメタデータ付きの補完表を渡す形にした。cate
                   (if (eq action 'metadata)
                       `(metadata (category . file)
                                  (display-sort-function . ,#'my/recursive-file--sort))
-                    (complete-with-action action all str pred)))))
+                    (complete-with-action action all str pred))))
+         ;; リモートでは marginalia の属性表示 (権限・サイズ・日時) を止める。
+         ;; marginalia は候補かミニバッファの入力が /ssh: などで始まるときだけ
+         ;; リモートと判断して飛ばすが、ここは候補も入力も相対パスなので
+         ;; 候補ごとにリモートへ stat が飛ぶ。Windows 実機で M-j 直後に 21 往復、
+         ;; 1 文字打つと最大 18 往復・1.08 秒かかっていた (2026-11-11、#9)。
+         ;; category は file のまま残す (絞り込みスタイルと embark の対象のため)
+         (marginalia-annotators
+          (if (file-remote-p default-directory)
+              (cons '(file none) (bound-and-true-p marginalia-annotators))
+            (bound-and-true-p marginalia-annotators))))
     (completing-read prompt table nil t initial 'file-name-history)))
 
 (defun my/recursive-file--descend (dir initial)

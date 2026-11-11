@@ -95,6 +95,20 @@
     (setq insert-directory-program "gls"))
   (setq dired-listing-switches
         "-l --almost-all --human-readable --group-directories-first --no-group")
+  ;; Windows: dirvish が一覧の下処理に起こす Emacs を .exe 付きで指定する。
+  ;; dirvish はリモートの dired でも手元で `dirvish-emacs-bin' (既定は拡張子なしの
+  ;; .../bin/emacs) を make-process する。TRAMP 2.8 はリモートのバッファで
+  ;; `exec-suffixes' を ("") にする (tramp-integration.el の
+  ;; tramp-connection-local-default-system-variables。2.7.1 には無い) ので
+  ;; .exe が補われず「Spawning child process: Invalid argument」で dired が開かない。
+  ;; 2026-11-11 に Windows 実機で確認 (#9)。defconst だが setq で上書きできる
+  (when windows-nt-p
+    (with-eval-after-load 'dirvish
+      (let ((exe (expand-file-name
+                  (concat (file-name-sans-extension invocation-name) ".exe")
+                  invocation-directory)))
+        (when (file-executable-p exe)
+          (setq dirvish-emacs-bin exe)))))
   ;; dired-use-ls-dired は既定の 'unspecified のままにする。初回の dired 表示時に
   ;; ls が --dired を受けるか自分で判定して結果を保存するため、手で決め打つ必要がない。
   (setq dirvish-hide-details t)

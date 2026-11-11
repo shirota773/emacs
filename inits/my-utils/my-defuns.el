@@ -38,8 +38,11 @@ Linux はコマンド名)。md の既定がエディタでもブラウザやビ�
      (darwin-p     (if app
                        (call-process "open" nil 0 nil "-a" app path)
                      (call-process "open" nil 0 nil path)))
+     ;; APP を指定したときの第 3 引数はコマンドラインの引数文字列そのもの。
+     ;; 引用符で囲まないと空白で割れ、"web test/doc.md" が web と test/doc.md の
+     ;; 2 つとして渡る (Windows 実機の Edge でタブが 2 つ開いた、2026-11-11、#10)
      (windows-nt-p (if app
-                       (w32-shell-execute "open" app path)
+                       (w32-shell-execute "open" app (concat "\"" path "\""))
                      (w32-shell-execute "open" path)))
      (t            (if app
                        (call-process app nil 0 nil path)
