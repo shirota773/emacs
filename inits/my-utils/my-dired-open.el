@@ -22,7 +22,6 @@
 
 (require 'dired)
 (require 'dirvish)
-(require 'browse-url)
 
 (declare-function my/open-externally "my-defuns")
 
@@ -44,12 +43,11 @@ Emacs で開きたいときは `v' (`my/dired-open-in-emacs') か C-u を前置�
   :group 'dired)
 
 (defcustom my/dired-open-browser-app nil
-  "ブラウザで開くときに名指しするアプリ。nil なら OS の既定アプリに委ねる。
+  "ブラウザで開くときに名指しするアプリ。nil なら拡張子の既定アプリに委ねる。
 
-**nil のままだと md はブラウザで開かない。** macOS の `open' は file:// URL を
-「拡張子の既定アプリ」で開く仕様で、.html はたまたま既定がブラウザなので動くが、
-.md は既定がエディタなので Emacs やテキストエディタに吸われる。
-確実にブラウザへ渡すにはブラウザを名指しするしかない。
+nil のとき md が開くアプリは OS の関連付けで決まる。macOS は .md の既定が
+エディタなので、ブラウザで見るにはブラウザを名指しする (05_dired.el で Vivaldi)。
+Windows で .md の関連付けがブラウザ (Edge など) なら nil のままでよい。
 
 値は `my/open-externally' の APP に渡す (macOS はアプリ名、Windows は実行ファイル名)。"
   :type '(choice (const :tag "OS の既定アプリに委ねる" nil) string)
@@ -64,6 +62,42 @@ Emacs で開きたいときは `v' (`my/dired-open-in-emacs') か C-u を前置�
 `downcase' して比較するのは dirvish 内で統一されている作法 (dirvish.el:801)。"
   (downcase (or (file-name-extension file) "")))
 
+;; ブラウザへは `browse-url-of-file' を使わずに渡す (2026-11-11、#8 / #10)。
+;; - リモートのファイルは `browse-url-of-file' が一時コピーを作るが、その記録
+;;   `browse-url-temp-file-name' がバッファローカルで dired バッファに残る。
+;;   同じ dired から 2 つ目を開くとコピーが作られず、リモートのパスが
+;;   ftp://sshx/host:/... という URL になってブラウザに空のタブが開いていた
+;; - `browse-url' の既定のハンドラは .html で終わらない file:// URL を
+;;   `browse-url-emacs' で Emacs に開く。Windows では md がブラウザに行かず、
+;;   リモートの md は一時コピーが書ける状態で Emacs に開いていた
+;; 手元に一時コピーを作ってから `my/open-externally' に渡せば、どちらも起きない。
+;; 一時コピーは html / md 単体なので、相対パスの CSS・画像は出ない。
+
+(defvar my/dired-open--temp-files nil
+  "ブラウザに渡すために作ったリモートファイルの一時コピー。終了時に消す。")
+
+(defun my/dired-open--delete-temp-files ()
+  "`my/dired-open--temp-files' を消す。`kill-emacs-hook' 用。"
+  (dolist (f my/dired-open--temp-files)
+    (ignore-errors (delete-file f)))
+  (setq my/dired-open--temp-files nil))
+
+(add-hook 'kill-emacs-hook #'my/dired-open--delete-temp-files)
+
+(defun my/dired-open--local-file (file)
+  "FILE が手元にあれば絶対パスを、リモートなら手元の一時コピーのパスを返す。
+一時コピーは拡張子を保つ (tramp.XXXXXX.html) ので、関連付けはそのまま効く。"
+  (if (not (file-remote-p file))
+      (expand-file-name file)
+    (let ((copy (file-local-copy file)))
+      (push copy my/dired-open--temp-files)
+      copy)))
+
+(defun my/dired-open-in-browser (file)
+  "FILE をブラウザ (`my/dired-open-browser-app'、nil なら既定アプリ) で開く。
+リモートのファイルは手元に一時コピーを作ってから開く。"
+  (my/open-externally (my/dired-open--local-file file) my/dired-open-browser-app))
+
 (defun my/dired-open-dispatch (file find-fn)
   "FILE を拡張子に応じて外部で開く。開いたら非 nil を返す。
 `dirvish-find-entry-hook' 用。非 nil を返すと dirvish は以降の処理をやめる。"
@@ -76,11 +110,7 @@ Emacs で開きたいときは `v' (`my/dired-open-in-emacs') か C-u を前置�
      (my/dired-open--inhibit nil)
      (current-prefix-arg nil)
      ((member ext my/dired-open-browser-exts)
-      ;; ブラウザを名指しできるならそちら。browse-url-of-file は macOS では
-      ;; open "file://..." になり、拡張子の既定アプリに落ちてしまう
-      (if my/dired-open-browser-app
-          (my/open-externally file my/dired-open-browser-app)
-        (browse-url-of-file (expand-file-name file)))
+      (my/dired-open-in-browser file)
       t)
      ((member ext my/dired-open-external-exts)
       (my/open-externally file)

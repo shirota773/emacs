@@ -14,6 +14,13 @@
   (set-clipboard-coding-system 'utf-16le-dos)
   (set-selection-coding-system 'utf-16le-dos)
   (set-frame-font "Ricty diminished-12" nil t)
+  ;; fixed-pitch も同じフォントにする。既定の family "Monospace" は Windows に
+  ;; 無く Courier New に落ち、日本語は別のフォントで描かれる。Markdown の閲覧
+  ;; モード (本文 variable-pitch、表とコードは fixed-pitch) で、日本語を含む表の
+  ;; 縦線が行ごとに約 10px ずれていた (2026-11-11、#10)。編集モードは default の
+  ;; Ricty で描くので揃っていた。default から取るのは、Ricty が無い PC でも
+  ;; 編集モードと同じ見た目に揃えるため
+  (set-face-attribute 'fixed-pitch nil :family (face-attribute 'default :family))
 
   ;; ---- 改行コード (CRLF を使わず LF に統一する) ----
   ;; 新規ファイル: 上の utf-8-unix 既定により LF。

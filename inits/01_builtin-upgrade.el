@@ -30,27 +30,35 @@
     (tramp . "2.8"))
   "ELPA 版に上げる同梱パッケージと、求める最低バージョンの alist。")
 
-(defun my/builtin-upgrade--archive-desc (pkg)
-  "PKG の ELPA 版の package-desc を返す。手元のアーカイブ一覧に無ければ取り直す。"
-  (or (cadr (assq pkg package-archive-contents))
-      (progn (package-refresh-contents)
-             (cadr (assq pkg package-archive-contents)))))
+(defun my/builtin-upgrade--install (pkg min)
+  "手元のアーカイブ一覧にある PKG を入れる。MIN (バージョンのリスト) に届かなければエラー。"
+  (let ((desc (cadr (assq pkg package-archive-contents))))
+    (cond
+     ((null desc)
+      (error "アーカイブに %s がありません" pkg))
+     ;; アーカイブ側も古いと、起動のたびに入れ直すことになる
+     ((version-list-< (package-desc-version desc) min)
+      (error "アーカイブの %s は %s で、%s に届きません"
+             pkg (package-version-join (package-desc-version desc))
+             (package-version-join min)))
+     (t (package-install desc)))))
 
 (defun my/builtin-upgrade-ensure (pkg min-version)
-  "PKG が MIN-VERSION より古ければ ELPA 版を入れる。失敗しても起動は止めない。"
+  "PKG が MIN-VERSION より古ければ ELPA 版を入れる。失敗しても起動は止めない。
+
+最初は手元のアーカイブ一覧 (elpa/archives/) のまま試し、失敗したら一覧を
+取り直して 1 回だけやり直す。一覧が古いと、そこに載っている版が ELPA から
+消えていて 404 になる (2026-11-11 に Windows で発生。一覧は 2026-09-11 付で
+tramp-2.8.2.2.tar を指していたが、ELPA は 2.8.2.4 に進んでいた)。一覧に
+載っているかどうかだけで取り直しを決めると、起動のたびに同じ 404 を踏む。"
   (let ((min (version-to-list min-version)))
     (unless (package-installed-p pkg min)
       (condition-case err
-          (let ((desc (my/builtin-upgrade--archive-desc pkg)))
-            (cond
-             ((null desc)
-              (error "アーカイブに %s がありません" pkg))
-             ;; アーカイブ側も古いと、起動のたびに入れ直すことになる
-             ((version-list-< (package-desc-version desc) min)
-              (error "アーカイブの %s は %s で、%s に届きません"
-                     pkg (package-version-join (package-desc-version desc))
-                     min-version))
-             (t (package-install desc))))
+          (condition-case nil
+              (my/builtin-upgrade--install pkg min)
+            (error
+             (package-refresh-contents)
+             (my/builtin-upgrade--install pkg min)))
         (error
          (display-warning
           'my/builtin-upgrade

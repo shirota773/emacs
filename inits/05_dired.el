@@ -26,6 +26,16 @@
   ;; dired-find-alternate-file の有効化
   (put 'dired-find-alternate-file 'disabled nil)
 
+  ;; C-x C-j の直後の j / C-j を dired-jump の繰り返しにしない。
+  ;; dired.el の dired-jump-map が repeat-mode 用で、C-x C-j の直後だけ
+  ;; j と C-j を dired-jump (= 親ディレクトリへ) に変える。この設定の dired では
+  ;; j は次の行なので、開いた直後に j を押すと 1 行下がらず親へ上がり、リモートでは
+  ;; そのたびに一覧を取り直していた。上の階層へは h で行ける。
+  ;; repeat-map の属性は dired.el の読み込み時に付くので、その後で外す
+  ;; (leaf の :config は読み込みを待たない)。
+  (with-eval-after-load 'dired
+    (put 'dired-jump 'repeat-map nil))
+
   ;; 既定アプリで開く処理は my-defuns.el の my/open-externally-dwim に統合した
   ;; (2026-07-31)。dired ならポイント下のファイルを対象にするので E はそのまま。
 
@@ -85,6 +95,20 @@
     (setq insert-directory-program "gls"))
   (setq dired-listing-switches
         "-l --almost-all --human-readable --group-directories-first --no-group")
+  ;; Windows: dirvish が一覧の下処理に起こす Emacs を .exe 付きで指定する。
+  ;; dirvish はリモートの dired でも手元で `dirvish-emacs-bin' (既定は拡張子なしの
+  ;; .../bin/emacs) を make-process する。TRAMP 2.8 はリモートのバッファで
+  ;; `exec-suffixes' を ("") にする (tramp-integration.el の
+  ;; tramp-connection-local-default-system-variables。2.7.1 には無い) ので
+  ;; .exe が補われず「Spawning child process: Invalid argument」で dired が開かない。
+  ;; 2026-11-11 に Windows 実機で確認 (#9)。defconst だが setq で上書きできる
+  (when windows-nt-p
+    (with-eval-after-load 'dirvish
+      (let ((exe (expand-file-name
+                  (concat (file-name-sans-extension invocation-name) ".exe")
+                  invocation-directory)))
+        (when (file-executable-p exe)
+          (setq dirvish-emacs-bin exe)))))
   ;; dired-use-ls-dired は既定の 'unspecified のままにする。初回の dired 表示時に
   ;; ls が --dired を受けるか自分で判定して結果を保存するため、手で決め打つ必要がない。
   (setq dirvish-hide-details t)

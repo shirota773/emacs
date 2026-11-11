@@ -108,6 +108,19 @@
   :require t
   :config
   (setq treesit-auto-install nil)
+  ;; 入れないと決めているなら、grammar の無い言語でバッファを読み直させない。
+  ;; `treesit-auto--maybe-install-grammar' は grammar が無いと (入れるかどうかに
+  ;; 関係なく) 最後に必ず `revert-buffer' を呼ぶ。treesit-auto-install が nil だと
+  ;; 何も入らないので読み直しは無駄で、リモートの .py / .json は 2 回読まれていた
+  ;; (Windows 実機で開くのに .py 5.1 秒 / .json 4.1 秒、2026-11-11、#9)。
+  ;; grammar が読める言語は set-auto-mode の時点で ts-mode に振り替わっていて、
+  ;; この関数は何もしないので止めても変わらない。
+  ;; M-x treesit-auto-install-all は別の経路なので、明示的に入れる操作は残る
+  (defun my/treesit-auto--install-enabled-p (&rest _)
+    "`treesit-auto-install' が nil なら grammar の確認と読み直しをやめる。"
+    treesit-auto-install)
+  (advice-add 'treesit-auto--maybe-install-grammar :before-while
+              #'my/treesit-auto--install-enabled-p)
   (global-treesit-auto-mode))
 
 ;; =============================================================================

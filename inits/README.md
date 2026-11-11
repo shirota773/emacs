@@ -55,6 +55,58 @@ x86_64 プロセスからは開けず、arm64 プロセスからは開ける。*
 節番号は `2-1` 〜 `2-6` のまま (この README と `review-notes.md` の参照先を
 生かすため)。内訳はファイル冒頭の Commentary を参照。
 
+### Windows 実機の確認結果を受けた修正 — 2026-11-11
+
+#9 / #10 の確認結果 (Windows 11 / Emacs 30.1 / TRAMP 2.8.2.4 / 会社の Linux へ `/sshx:`) から。
+会社の接続は `/sshx:` でインライン転送なので、下の scp の節の修正は普段の操作には効かない。
+実際に遅かったのは次の 2 つ。
+
+- リモートの `M-j`: marginalia が候補ごとに権限・サイズ・日時を取りにリモートへ行っていた
+  (1 文字打つと最大 18 往復・1.08 秒)。リモートのときだけ属性表示を止めた
+  (`my/recursive-file--read`)。疑似リモートで、開いた直後の marginalia の往復が 5 → 0
+- リモートの `.py` / `.json` を開くと 2 回読まれていた (5.1 秒 / 4.1 秒)。treesit-auto が
+  grammar の無い言語で、入れないのに最後に必ず `revert-buffer` する。
+  `treesit-auto-install` が nil の間は確認ごとやめる (30_test-new.el)。疑似リモートで
+  往復 9 → 5、読み直し 1 → 0、開く時間は約半分
+
+壊れていたもの:
+
+- TRAMP 2.8 にすると Windows でリモートの dired が開かない
+  (`dirvish--make-proc: Spawning child process: Invalid argument`)。TRAMP 2.8 が
+  リモートのバッファで `exec-suffixes` を `("")` にし、dirvish が手元で起こす
+  `.../bin/emacs` に `.exe` が付かない。Windows では `dirvish-emacs-bin` を `.exe` 付きにした
+  (05_dired.el)
+- 起動時の TRAMP の更新が、手元のアーカイブ一覧が古いと毎回 404 で失敗していた。
+  失敗したら一覧を取り直して 1 回だけやり直す (01_builtin-upgrade.el)。古い一覧・
+  空の一覧・最新の一覧・アーカイブ側も古い、の 4 通りを stub で確認
+- 同じ dired からリモートの html を 2 つ目に開くと `ftp://` の空のタブ (#8)、
+  Windows の md が Emacs に開く、`my/dired-open-browser-app` を指定すると空白入りの
+  パスが割れる (#10)。リモートは手元に一時コピーを作ってから `my/open-externally` に
+  渡し、`browse-url` を通さない。Windows でアプリを指定したときはパスを `"` で囲む
+- Markdown の閲覧モードで、日本語を含む表の縦線が行ごとにずれる (#10)。fixed-pitch が
+  Courier New に落ちていた。Windows では fixed-pitch を default と同じフォントにした (win.el)
+
+**Windows 実機では未確認** (見た目と実接続)。mac の batch と疑似リモートで確認済み。
+
+### Windows で scp のファイル転送を今の接続に流す — 2026-11-11
+
+Windows の TRAMP で「開く・保存するたびに待たされる」の主因と見て 2-7 節を追加した。
+(その後の実機確認で、会社の接続は `/sshx:` = インライン転送と分かった。この修正が
+効くのは `/scp:` で開いたときだけ。補完候補の `/scp:host:` から開く場合に備えて残す)
+scp メソッドは 10KB を超えるファイルを別の scp プロセスで送り、Windows の OpenSSH
+には ControlMaster が無いので 1 ファイルごとに ssh のログインからやり直していた。
+Windows だけ `tramp-copy-size-limit` を 4MB にし、それ以下はインライン転送にする。
+
+- 確認済み (mac / 疑似リモート = mock メソッドに 1 往復 30ms とログイン 1 秒を足したもの):
+  scp 相当のメソッドで 500KB を開くと、既定では scp を起動し、4MB では新しい
+  プロセスを起動せず 0.59 秒。インライン転送は 2MB 0.46 秒 / 10MB 1.05 秒
+- 同じ計測で往復回数も見た。ファイルを開く 5〜16 回、dired の移動 7 回、
+  カーソル移動とアイドル中は 0 回、接続し直し 61 回 + ログイン、magit status 89 回
+- **Windows 実機では未確認**。確認すること: 10KB を超えるファイルを開く・保存する
+  ときの待ちが消えたか。切れた接続で固まるなら Windows の `~/.ssh/config` に
+  `ServerAliveInterval 30` / `ServerAliveCountMax 3` を足す (2-7 節のコメント)
+- 戻すとき: 2-7 節の `when` ブロックを消す
+
 ### TRAMP を ELPA 版 (2.8) に上げた — 2026-11-09
 
 `01_builtin-upgrade.el` が起動時に 2.8 未満なら GNU ELPA 版を入れる

@@ -14,6 +14,7 @@
 ;;   2-4.   consult-dir にリモートディレクトリのソースを足す
 ;;   2-5.   リモートバッファの git 情報 (ブランチ / 変更量) を遅延表示
 ;;   2-6.   リモートファイルは既定で read-only (view-mode) で開く
+;;   2-7.   Windows のみ: scp メソッドでも、ある程度の大きさまでは今の接続で送る
 ;;
 ;; さらに速くしたい場合は ~/.ssh/config に以下を追加 (接続の再利用):
 ;;   Host *
@@ -1354,6 +1355,44 @@ file-exists-p の追加コストは無視できる。find-file がここに来�
     (view-mode 1)))
 
 (add-hook 'find-file-hook #'my/tramp--find-file-read-only)
+
+;; -----------------------------------------------------------------------------
+;; 2-7. Windows のみ: scp メソッドでも、ある程度の大きさまでは今の接続で送る
+;;
+;; 症状: Windows から /scp:host: で 10KB を超えるファイルを開く・保存すると、
+;;   そのたびに数秒待たされる。
+;;
+;; 原因: scp メソッドは `tramp-copy-size-limit' (既定 10240 バイト) を超える
+;;   ファイルを「out-of-band」で送る。張ってある接続とは別に scp を起動する
+;;   (tramp-sh.el の `tramp-method-out-of-band-p' と
+;;   `tramp-do-copy-or-rename-file-out-of-band')。Windows の OpenSSH は
+;;   ControlMaster が使えないので、scp 1 本ごとに ssh のログインからやり直す。
+;;   この環境の `tramp-default-method' は "scp" で、2-2 節・2-3 節の補完候補も
+;;   /scp:host: で作るので、ふつうに開くと必ずこの経路になる。
+;;
+;; 対処: 上限を上げ、それ以下は張ってある接続のまま base64 (+ gzip) で送る
+;;   「インライン転送」にする。疑似リモート (mock メソッド、1 往復 30ms を足した
+;;   もの) でのインライン転送の実測は 50KB 0.31 秒 / 2MB 0.46 秒 / 10MB 1.05 秒、
+;;   往復はどれも 5 回。上限を超える巨大なファイルだけ従来どおり scp で送る。
+;;
+;; macOS は ~/.ssh/config の ControlMaster で scp のログインが要らないので
+;; 変えない (このファイル冒頭の Commentary)。
+;;
+;; 接続が黙って切れて固まる場合は TRAMP ではなく ssh 側の設定で防ぐ。Windows の
+;; ~/.ssh/config に以下を足す (会社の VPN やファイアウォールは、無通信の接続を
+;; 黙って切ることがある。切れたことに ssh が気付かないと、TRAMP は応答を
+;; 待ち続ける):
+;;   Host *
+;;     ServerAliveInterval 30
+;;     ServerAliveCountMax 3
+
+(defconst my/tramp-windows-copy-size-limit (* 4 1024 1024)
+  "Windows で scp を起動せずインラインで送るファイルサイズの上限 (バイト)。")
+
+(when (eq system-type 'windows-nt)
+  ;; defcustom は tramp-sh.el にある。読み込み後に上書きする
+  (with-eval-after-load 'tramp-sh
+    (setq tramp-copy-size-limit my/tramp-windows-copy-size-limit)))
 
 (provide '32_tramp)
 ;;; 32_tramp.el ends here
